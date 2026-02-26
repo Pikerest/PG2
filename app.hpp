@@ -1,11 +1,11 @@
-// icp.cpp 
-// author: JJ
-
 #pragma once
 
+#include <string>
 #include <vector>
-#include "GL/glew.h"
-#include "GLFW/glfw3.h"
+
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
+
 #include "assets.hpp"
 
 // Forward declarations for utility functions
@@ -16,25 +16,55 @@ class App {
 public:
     App();
 
-    GLFWwindow * window;
-    bool init(void);
-    int run(void);
+    bool init();
+    int run();
 
     ~App();
+
 private:
-    void init_assets(void);
-    //new GL stuff
-    // GLFWwindow* window = nullptr;
+    void init_assets();
+    void load_config(const std::string& path);
+    void init_debug_output();
+    void apply_vsync();
+    void update_window_title(double fps = -1.0);
+
+    static void glfw_error_callback(int error, const char* description);
+    static void key_callback_dispatch(GLFWwindow* window, int key, int scancode, int action, int mods);
+    static void framebuffer_size_callback_dispatch(GLFWwindow* window, int width, int height);
+    static void mouse_button_callback_dispatch(GLFWwindow* window, int button, int action, int mods);
+    static void cursor_position_callback_dispatch(GLFWwindow* window, double xpos, double ypos);
+    static void scroll_callback_dispatch(GLFWwindow* window, double xoffset, double yoffset);
+
+    void on_key(int key, int scancode, int action, int mods);
+    void on_framebuffer_size(int width, int height);
+    void on_mouse_button(int button, int action, int mods);
+    void on_cursor_position(double xpos, double ypos);
+    void on_scroll(double xoffset, double yoffset);
+
+    GLFWwindow* window = nullptr;
+
+    std::string window_title = "OpenGL context";
+    int window_width = 800;
+    int window_height = 600;
+    bool vsync_on = true;
+
+    float clear_r = 0.08f;
+    float clear_g = 0.10f;
+    float clear_b = 0.14f;
+    float clear_a = 1.0f;
+
+    float color_phase_offset = 0.0f;
+    float cursor_x_norm = 0.5f;
+    float cursor_y_norm = 0.5f;
 
     GLuint shader_prog_ID{ 0 };
     GLuint VBO_ID{ 0 };
     GLuint VAO_ID{ 0 };
-    
+
     std::vector<vertex> triangle_vertices =
     {
-    	{{0.0f,  0.5f,  0.0f}},
-    	{{0.5f, -0.5f,  0.0f}},
-    	{{-0.5f, -0.5f,  0.0f}}
+        {{0.0f,  0.5f,  0.0f}},
+        {{0.5f, -0.5f,  0.0f}},
+        {{-0.5f, -0.5f,  0.0f}}
     };
-    
 };
