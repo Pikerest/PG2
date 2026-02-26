@@ -8,10 +8,15 @@
 #include "GLFW/glfw3.h"
 #include "assets.hpp"
 
+// Forward declarations for utility functions
+void print_gl_info();
+void test_time_measure();
+
 class App {
 public:
     App();
 
+    GLFWwindow * window;
     bool init(void);
     int run(void);
 
@@ -19,7 +24,7 @@ public:
 private:
     void init_assets(void);
     //new GL stuff
-    GLFWwindow* window = nullptr;
+    // GLFWwindow* window = nullptr;
 
     GLuint shader_prog_ID{ 0 };
     GLuint VBO_ID{ 0 };

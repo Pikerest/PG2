@@ -21,6 +21,9 @@ endif()
 set(PROJECT_SOURCES
     app.cpp
     main.cpp
+    getinfo.cpp
+    time_measure.cpp
+    gl_err_callback.cpp
 )
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})

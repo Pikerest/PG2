@@ -25,6 +25,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "app.hpp"
+#include "gl_err_callback.h"
 
 App::App()
 {
@@ -42,7 +43,6 @@ bool App::init()
     	// https://www.glfw.org/documentation.html
         // TODO: add error checking!
     	glfwInit();
-    
     	// open window (GL canvas) with no special properties
         // https://www.glfw.org/docs/latest/quick.html#quick_create_window
         // TODO: add error checking!
@@ -54,12 +54,26 @@ bool App::init()
         // TODO: add error checking!
     	glewInit();
     	wglewInit();
+        
+        if (GLEW_ARB_debug_output)
+	    {
+		glDebugMessageCallback(MessageCallback, 0);
+		glEnable(GL_DEBUG_OUTPUT);
+        
+        //default is asynchronous debug output, use this to simulate glGetError() functionality
+        //glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        
+        std::cout << "GL_DEBUG enabled." << std::endl;
+	    }
+	    else
+		    std::cout << "GL_DEBUG NOT SUPPORTED!" << std::endl;
 
         if (!GLEW_ARB_direct_state_access)
             throw std::runtime_error("No DSA :-(");
             
-            
-        //TODO: get info about your GL context    
+        // Get info about GL context
+        print_gl_info();
+        test_time_measure();
     }
         
     init_assets();
@@ -142,7 +156,7 @@ void App::init_assets(void) {
 int App::run(void)
 {
     try {
-        GLfloat r,g,b,a;
+    GLfloat r,g,b,a;
     r=g=b=a=1.0f; //white color
 
     // Activate shader program. There is only one program, so activation can be out of the loop. 
@@ -191,7 +205,13 @@ App::~App()
     glDeleteBuffers(1, &VBO_ID);
     glDeleteVertexArrays(1, &VAO_ID);
 
+    if (window) {
+        glfwDestroyWindow(window);
+    }
+    glfwTerminate();
+    
     // clean-up
     cv::destroyAllWindows();
     std::cout << "Bye...\n";
 }
+
