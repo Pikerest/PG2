@@ -1,6 +1,7 @@
 // author: JJ
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <fstream>
@@ -12,6 +13,10 @@
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+
+#include <imgui.h>               // main ImGUI header
+#include <imgui_impl_glfw.h>     // GLFW bindings
+#include <imgui_impl_opengl3.h>  // OpenGL bindings
 
 #ifdef __has_include
     #if __has_include(<nlohmann/json.hpp>)
@@ -25,6 +30,7 @@
 #endif
 
 #include "app.hpp"
+#include "fps_meter.hpp"
 #include "gl_err_callback.h"
 
 #if APP_HAS_JSON
@@ -73,6 +79,9 @@ void App::load_config(const std::string& path)
     if (cfg.contains("title") && cfg["title"].is_string()) {
         window_title = cfg["title"].get<std::string>();
     }
+
+    windowed_width = window_width;
+    windowed_height = window_height;
 #else
     (void)path;
     std::cout << "nlohmann/json.hpp not found. JSON config loading skipped, defaults are used.\n";
@@ -82,6 +91,29 @@ void App::load_config(const std::string& path)
 void App::glfw_error_callback(int error, const char* description)
 {
     std::cerr << "GLFW error [" << error << "]: " << (description ? description : "<no description>") << std::endl;
+}
+
+void App::init_imgui()
+{
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 460");
+    imgui_initialized = true;
+
+    std::cout << "ImGui initialized (" << ImGui::GetVersion() << ")\n";
+}
+
+void App::shutdown_imgui()
+{
+    if (!imgui_initialized) {
+        return;
+    }
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    imgui_initialized = false;
 }
 
 void App::apply_vsync()
@@ -98,13 +130,25 @@ void App::update_window_title(double fps)
     std::ostringstream title;
     title << window_title
           << " | " << window_width << "x" << window_height
-          << " | VSync " << (vsync_on ? "ON" : "OFF");
+          << " | " << (is_fullscreen ? "Fullscreen" : "Windowed")
+          << " | VSync " << (vsync_on ? "ON" : "OFF")
+          << " | Mouse " << (cursor_captured ? "CAPTURED" : "FREE");
 
     if (fps >= 0.0) {
         title << " | FPS: " << std::fixed << std::setprecision(1) << fps;
     }
 
     glfwSetWindowTitle(window, title.str().c_str());
+}
+
+void App::set_cursor_captured(bool captured)
+{
+    if (!window) {
+        return;
+    }
+
+    cursor_captured = captured;
+    glfwSetInputMode(window, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }
 
 void App::init_debug_output()
@@ -150,6 +194,7 @@ bool App::init()
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE); // hide window during startup
 
         window = glfwCreateWindow(window_width, window_height, window_title.c_str(), nullptr, nullptr);
         if (!window) {
@@ -158,6 +203,7 @@ bool App::init()
 
         glfwMakeContextCurrent(window);
         glfwSetWindowUserPointer(window, this);
+        cache_windowed_state();
 
         glewExperimental = GL_TRUE;
         const GLenum glew_error = glewInit();
@@ -184,11 +230,15 @@ bool App::init()
 
         apply_vsync();
         glViewport(0, 0, window_width, window_height);
-        update_window_title();
-
         print_gl_info();
         test_time_measure();
+
         init_assets();
+        init_imgui();
+        set_cursor_captured(false); // GUI is visible by default, keep cursor free
+
+        update_window_title();
+        glfwShowWindow(window);
     }
     catch (const std::exception& e) {
         std::cerr << "Init failed: " << e.what() << std::endl;
@@ -263,6 +313,113 @@ void App::init_assets()
     glVertexArrayVertexBuffer(VAO_ID, 0, VBO_ID, 0, sizeof(vertex));
 }
 
+GLFWmonitor* App::pick_best_monitor_for_window() const
+{
+    if (!window) {
+        return glfwGetPrimaryMonitor();
+    }
+
+    int wx = 0;
+    int wy = 0;
+    int ww = window_width;
+    int wh = window_height;
+    glfwGetWindowPos(window, &wx, &wy);
+    glfwGetWindowSize(window, &ww, &wh);
+
+    int monitor_count = 0;
+    GLFWmonitor** monitors = glfwGetMonitors(&monitor_count);
+    if (monitors == nullptr || monitor_count <= 0) {
+        return glfwGetPrimaryMonitor();
+    }
+
+    GLFWmonitor* best_monitor = monitors[0];
+    int best_area = -1;
+
+    for (int i = 0; i < monitor_count; ++i) {
+        int mx = 0;
+        int my = 0;
+        glfwGetMonitorPos(monitors[i], &mx, &my);
+
+        const GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
+        if (mode == nullptr) {
+            continue;
+        }
+
+        const int x1 = std::max(wx, mx);
+        const int y1 = std::max(wy, my);
+        const int x2 = std::min(wx + ww, mx + mode->width);
+        const int y2 = std::min(wy + wh, my + mode->height);
+        const int overlap_area = std::max(0, x2 - x1) * std::max(0, y2 - y1);
+
+        if (overlap_area > best_area) {
+            best_area = overlap_area;
+            best_monitor = monitors[i];
+        }
+    }
+
+    return best_monitor;
+}
+
+void App::cache_windowed_state()
+{
+    if (!window || is_fullscreen) {
+        return;
+    }
+
+    glfwGetWindowPos(window, &windowed_x, &windowed_y);
+    glfwGetWindowSize(window, &windowed_width, &windowed_height);
+}
+
+void App::toggle_fullscreen()
+{
+    if (!window) {
+        return;
+    }
+
+    if (!is_fullscreen) {
+        cache_windowed_state();
+
+        GLFWmonitor* monitor = pick_best_monitor_for_window();
+        if (monitor == nullptr) {
+            monitor = glfwGetPrimaryMonitor();
+        }
+
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        if (mode == nullptr) {
+            return;
+        }
+
+        glfwSetWindowMonitor(window,
+                             monitor,
+                             0,
+                             0,
+                             mode->width,
+                             mode->height,
+                             mode->refreshRate);
+
+        is_fullscreen = true;
+        window_width = mode->width;
+        window_height = mode->height;
+    }
+    else {
+        glfwSetWindowMonitor(window,
+                             nullptr,
+                             windowed_x,
+                             windowed_y,
+                             windowed_width,
+                             windowed_height,
+                             0);
+
+        is_fullscreen = false;
+        window_width = std::max(1, windowed_width);
+        window_height = std::max(1, windowed_height);
+    }
+
+    glViewport(0, 0, window_width, window_height);
+    apply_vsync();
+    update_window_title();
+}
+
 void App::key_callback_dispatch(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     App* app = static_cast<App*>(glfwGetWindowUserPointer(window));
@@ -324,6 +481,18 @@ void App::on_key(int key, int scancode, int action, int mods)
         std::cout << "VSync " << (vsync_on ? "ON" : "OFF") << std::endl;
         break;
 
+    case GLFW_KEY_D:
+        show_imgui = !show_imgui;
+        // When GUI is visible, keep cursor free so it can be clicked.
+        // When GUI is hidden, capture cursor for app control.
+        set_cursor_captured(!show_imgui);
+        update_window_title();
+        break;
+
+    case GLFW_KEY_F11:
+        toggle_fullscreen();
+        break;
+
     case GLFW_KEY_C:
         clear_r = 0.08f;
         clear_g = 0.10f;
@@ -340,6 +509,12 @@ void App::on_framebuffer_size(int width, int height)
     window_width = std::max(width, 1);
     window_height = std::max(height, 1);
     glViewport(0, 0, window_width, window_height);
+
+    if (!is_fullscreen) {
+        windowed_width = window_width;
+        windowed_height = window_height;
+    }
+
     update_window_title();
 }
 
@@ -351,24 +526,41 @@ void App::on_mouse_button(int button, int action, int mods)
         return;
     }
 
+    if (show_imgui && ImGui::GetIO().WantCaptureMouse) {
+        return;
+    }
+
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
-        clear_b = clamp01(clear_b + 0.10f);
+        if (!cursor_captured) {
+            set_cursor_captured(true);
+        }
+        else {
+            clear_b = clamp01(clear_b + 0.10f);
+        }
     }
     else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-        clear_r = 0.0f;
-        clear_g = 0.0f;
-        clear_b = 0.0f;
+        set_cursor_captured(false);
     }
     else if (button == GLFW_MOUSE_BUTTON_MIDDLE) {
         clear_r = 0.08f;
         clear_g = 0.10f;
         clear_b = 0.14f;
     }
+
+    update_window_title();
 }
 
 void App::on_cursor_position(double xpos, double ypos)
 {
     if (window_width <= 0 || window_height <= 0) {
+        return;
+    }
+
+    if (!cursor_captured) {
+        return;
+    }
+
+    if (show_imgui && ImGui::GetIO().WantCaptureMouse) {
         return;
     }
 
@@ -381,6 +573,10 @@ void App::on_cursor_position(double xpos, double ypos)
 
 void App::on_scroll(double xoffset, double yoffset)
 {
+    if (show_imgui && ImGui::GetIO().WantCaptureMouse) {
+        return;
+    }
+
     color_phase_offset += static_cast<float>(0.25 * yoffset);
     clear_b = clamp01(clear_b + static_cast<float>(0.05 * (xoffset + yoffset)));
 }
@@ -395,12 +591,32 @@ int App::run()
             throw std::runtime_error("uniform_Color not found in active shader program.");
         }
 
-        double fps_timer_start = glfwGetTime();
-        int frame_counter = 0;
+        fps_meter fps;
+        fps.set_interval(std::chrono::duration<double>(0.25));
+        double displayed_fps = 0.0;
 
         while (!glfwWindowShouldClose(window)) {
             const double now = glfwGetTime();
             const float t = static_cast<float>(now) + color_phase_offset;
+
+            if (show_imgui) {
+                ImGui_ImplOpenGL3_NewFrame();
+                ImGui_ImplGlfw_NewFrame();
+                ImGui::NewFrame();
+
+                ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f), ImGuiCond_Always);
+                ImGui::SetNextWindowSize(ImVec2(290.0f, 150.0f), ImGuiCond_Always);
+                ImGui::Begin("Info", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+                ImGui::Text("V-Sync: %s", vsync_on ? "ON" : "OFF");
+                ImGui::Text("FPS: %.1f", displayed_fps);
+                ImGui::Text("Mode: %s", is_fullscreen ? "Fullscreen" : "Windowed");
+                ImGui::Text("Mouse: %s", cursor_captured ? "Captured" : "Released");
+                ImGui::Separator();
+                ImGui::Text("LMB = capture / interact");
+                ImGui::Text("RMB = release mouse");
+                ImGui::Text("D = toggle GUI, F11 = fullscreen");
+                ImGui::End();
+            }
 
             const GLfloat r = 0.5f + 0.5f * std::sin(t);
             const GLfloat g = 0.5f + 0.5f * std::sin(t + (2.0f * PI_F / 3.0f));
@@ -414,16 +630,18 @@ int App::run()
             glBindVertexArray(VAO_ID);
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(triangle_vertices.size()));
 
+            if (show_imgui) {
+                ImGui::Render();
+                ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            }
+
             glfwSwapBuffers(window);
             glfwPollEvents();
 
-            ++frame_counter;
-            const double elapsed = now - fps_timer_start;
-            if (elapsed >= 0.25) {
-                const double fps = static_cast<double>(frame_counter) / elapsed;
-                update_window_title(fps);
-                fps_timer_start = now;
-                frame_counter = 0;
+            fps.update();
+            if (fps.is_updated()) {
+                displayed_fps = fps.get();
+                update_window_title(displayed_fps);
             }
         }
     }
@@ -438,6 +656,8 @@ int App::run()
 
 App::~App()
 {
+    shutdown_imgui();
+
     if (shader_prog_ID != 0) {
         glDeleteProgram(shader_prog_ID);
     }

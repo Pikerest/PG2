@@ -23,10 +23,20 @@ public:
 
 private:
     void init_assets();
+    // Imgui
+    void init_imgui();
+    void shutdown_imgui();
     void load_config(const std::string& path);
     void init_debug_output();
+    // Vsync and window management 
     void apply_vsync();
     void update_window_title(double fps = -1.0);
+    void cache_windowed_state();
+    void toggle_fullscreen();
+    // Cursor cap
+    void set_cursor_captured(bool captured);
+    
+    GLFWmonitor* pick_best_monitor_for_window() const;
 
     static void glfw_error_callback(int error, const char* description);
     static void key_callback_dispatch(GLFWwindow* window, int key, int scancode, int action, int mods);
@@ -47,6 +57,16 @@ private:
     int window_width = 800;
     int window_height = 600;
     bool vsync_on = true;
+
+    bool show_imgui = true;
+    bool imgui_initialized = false;
+    bool cursor_captured = false;
+    bool is_fullscreen = false;
+
+    int windowed_x = 100;
+    int windowed_y = 100;
+    int windowed_width = 800;
+    int windowed_height = 600;
 
     float clear_r = 0.08f;
     float clear_g = 0.10f;
