@@ -3,6 +3,7 @@
 /build_new/
 /out/
 /cmake-build-*/
+/.vcpkg-downloads/
 
 # CMake files
 CMakeCache.txt

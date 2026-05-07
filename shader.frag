@@ -8,6 +8,7 @@ uniform vec3 ambient_material = vec3(1.0, 1.0, 1.0);
 uniform vec3 diffuse_material = vec3(1.0, 1.0, 1.0);
 uniform vec3 specular_material = vec3(1.0, 1.0, 1.0);
 uniform float specular_shininess = 32.0;
+uniform vec3 u_emissive = vec3(0.0);
 
 // Material transparency (Task 1: Transparency)
 // 1.0 = fully opaque, 0.0 = fully transparent
@@ -22,10 +23,11 @@ uniform vec3 dir_light_diffuse;
 uniform vec3 dir_light_specular;
 
 // Point lights
-#define MAX_POINT_LIGHTS 3
+#define MAX_POINT_LIGHTS 8
 uniform vec3 point_light_ambient[MAX_POINT_LIGHTS];
 uniform vec3 point_light_diffuse[MAX_POINT_LIGHTS];
 uniform vec3 point_light_specular[MAX_POINT_LIGHTS];
+uniform float point_light_radius[MAX_POINT_LIGHTS];
 uniform int num_point_lights;
 
 // Spotlight
@@ -48,6 +50,8 @@ in VS_OUT {
 } fs_in;
 
 vec3 calculatePointLight(int i, vec3 N, vec3 V) {
+    float dist = length(fs_in.point_L[i]);
+    float attenuation = pow(clamp(1.0 - dist / max(point_light_radius[i], 0.001), 0.0, 1.0), 2.0);
     vec3 L = normalize(fs_in.point_L[i]);
     vec3 R = reflect(-L, N);
     
@@ -56,7 +60,7 @@ vec3 calculatePointLight(int i, vec3 N, vec3 V) {
     vec3 specular = pow(max(dot(R, V), 0.0), specular_shininess) * 
                     point_light_specular[i] * specular_material;
     
-    return (ambient + diffuse + specular);
+    return (ambient + diffuse + specular) * attenuation;
 }
 
 vec3 calculateSpotLight(vec3 N, vec3 V) {
@@ -108,5 +112,5 @@ void main()
     vec3 lighting = dirLight + pointLight + spotLight;
     
     // Apply to texture, including material alpha for transparency (Task 1)
-    FragColor = vec4(lighting * texColor.rgb, texColor.a * u_material_alpha);
+    FragColor = vec4(lighting * texColor.rgb + u_emissive, texColor.a * u_material_alpha);
 }
