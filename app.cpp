@@ -320,29 +320,95 @@ void App::init_assets(void) {
 
     // Truncated icosahedron hub shell — interior-facing normals, semi-transparent
     auto tex_icosa = std::make_shared<Texture>(glm::vec4(0.18f, 0.82f, 0.62f, 1.0f));
-    auto hub_icosa = std::make_shared<Model>("objects/icosahedron_hub.obj", shader_prog, tex_icosa);
+    auto hub_icosa = std::make_shared<Model>("objects/hub_shell_portals.obj", shader_prog, tex_icosa);
     hub_icosa->pivot_position = hub_center;
     hub_icosa->scale = glm::vec3(1.45f);
     hub_icosa->is_transparent = true;
-    hub_icosa->material_alpha = 0.19f;
+    hub_icosa->material_alpha = 0.52f;
     scene["hub_icosahedron"] = hub_icosa;
 
-    // Hub catwalks — start at platform edges, end just inside icosahedron inradius (~23)
-    // Platform: x ±4.7, z -16.6 to -8.4.  Icosa inradius ≈ 21 usable.
-    add_box("hub_platform_center", glm::vec3(hub_center.x, 0.16f, hub_center.z), glm::vec3(9.4f, 0.32f, 8.2f), tex_catwalk);
-    add_box("hub_catwalk_west",  glm::vec3(-12.85f, 0.12f, -12.5f), glm::vec3(16.3f, 0.24f, 2.0f), tex_catwalk);
-    add_box("hub_catwalk_east",  glm::vec3( 12.85f, 0.12f, -12.5f), glm::vec3(16.3f, 0.24f, 2.0f), tex_catwalk);
-    add_box("hub_catwalk_south", glm::vec3(  0.0f, 0.12f,   0.3f), glm::vec3(2.0f, 0.24f, 17.4f), tex_catwalk);
-    add_box("hub_catwalk_north", glm::vec3(  0.0f, 0.12f, -23.8f), glm::vec3(2.0f, 0.24f, 14.4f), tex_catwalk);
+    auto tex_collision_clear = std::make_shared<Texture>(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f));
+    constexpr float hub_shell_radius = 23.8f;
+    constexpr float hub_tunnel_half_width = 2.8f;
+    constexpr float hub_shell_thickness = 0.8f;
+    constexpr float hub_shell_height = 5.0f;
+    const float hub_shell_y = hub_shell_height * 0.5f;
+    const float hub_wall_segment_len = hub_shell_radius - hub_tunnel_half_width;
+    const float hub_wall_segment_offset = (hub_shell_radius + hub_tunnel_half_width) * 0.5f;
 
-    add_box("hub_rail_west_north", glm::vec3(-12.85f, 0.9f, -13.5f), glm::vec3(16.3f, 0.25f, 0.22f), tex_dark, true, 1.0f);
-    add_box("hub_rail_west_south", glm::vec3(-12.85f, 0.9f, -11.5f), glm::vec3(16.3f, 0.25f, 0.22f), tex_dark, true, 1.0f);
-    add_box("hub_rail_east_north", glm::vec3( 12.85f, 0.9f, -13.5f), glm::vec3(16.3f, 0.25f, 0.22f), tex_dark, true, 1.0f);
-    add_box("hub_rail_east_south", glm::vec3( 12.85f, 0.9f, -11.5f), glm::vec3(16.3f, 0.25f, 0.22f), tex_dark, true, 1.0f);
-    add_box("hub_rail_south_left",  glm::vec3(-1.0f, 0.9f,   0.3f), glm::vec3(0.22f, 0.25f, 17.4f), tex_dark, true, 1.0f);
-    add_box("hub_rail_south_right", glm::vec3( 1.0f, 0.9f,   0.3f), glm::vec3(0.22f, 0.25f, 17.4f), tex_dark, true, 1.0f);
-    add_box("hub_rail_north_left",  glm::vec3(-1.0f, 0.9f, -23.8f), glm::vec3(0.22f, 0.25f, 14.4f), tex_dark, true, 1.0f);
-    add_box("hub_rail_north_right", glm::vec3( 1.0f, 0.9f, -23.8f), glm::vec3(0.22f, 0.25f, 14.4f), tex_dark, true, 1.0f);
+    add_box("hub_collision_east_north", glm::vec3( hub_shell_radius, hub_shell_y, hub_center.z - hub_wall_segment_offset), glm::vec3(hub_shell_thickness, hub_shell_height, hub_wall_segment_len), tex_collision_clear, true, 1.0f, true, 0.0f);
+    add_box("hub_collision_east_south", glm::vec3( hub_shell_radius, hub_shell_y, hub_center.z + hub_wall_segment_offset), glm::vec3(hub_shell_thickness, hub_shell_height, hub_wall_segment_len), tex_collision_clear, true, 1.0f, true, 0.0f);
+    add_box("hub_collision_west_north", glm::vec3(-hub_shell_radius, hub_shell_y, hub_center.z - hub_wall_segment_offset), glm::vec3(hub_shell_thickness, hub_shell_height, hub_wall_segment_len), tex_collision_clear, true, 1.0f, true, 0.0f);
+    add_box("hub_collision_west_south", glm::vec3(-hub_shell_radius, hub_shell_y, hub_center.z + hub_wall_segment_offset), glm::vec3(hub_shell_thickness, hub_shell_height, hub_wall_segment_len), tex_collision_clear, true, 1.0f, true, 0.0f);
+    add_box("hub_collision_south_west", glm::vec3(-hub_wall_segment_offset, hub_shell_y, hub_center.z + hub_shell_radius), glm::vec3(hub_wall_segment_len, hub_shell_height, hub_shell_thickness), tex_collision_clear, true, 1.0f, true, 0.0f);
+    add_box("hub_collision_south_east", glm::vec3( hub_wall_segment_offset, hub_shell_y, hub_center.z + hub_shell_radius), glm::vec3(hub_wall_segment_len, hub_shell_height, hub_shell_thickness), tex_collision_clear, true, 1.0f, true, 0.0f);
+    add_box("hub_collision_north_west", glm::vec3(-hub_wall_segment_offset, hub_shell_y, hub_center.z - hub_shell_radius), glm::vec3(hub_wall_segment_len, hub_shell_height, hub_shell_thickness), tex_collision_clear, true, 1.0f, true, 0.0f);
+    add_box("hub_collision_north_east", glm::vec3( hub_wall_segment_offset, hub_shell_y, hub_center.z - hub_shell_radius), glm::vec3(hub_wall_segment_len, hub_shell_height, hub_shell_thickness), tex_collision_clear, true, 1.0f, true, 0.0f);
+
+    add_box("hub_tunnel_frame_east_left",   glm::vec3( hub_shell_radius - 0.25f, 2.1f, hub_center.z - hub_tunnel_half_width), glm::vec3(0.35f, 4.2f, 0.22f), tex_dark, false, 1.0f);
+    add_box("hub_tunnel_frame_east_right",  glm::vec3( hub_shell_radius - 0.25f, 2.1f, hub_center.z + hub_tunnel_half_width), glm::vec3(0.35f, 4.2f, 0.22f), tex_dark, false, 1.0f);
+    add_box("hub_tunnel_frame_west_left",   glm::vec3(-hub_shell_radius + 0.25f, 2.1f, hub_center.z - hub_tunnel_half_width), glm::vec3(0.35f, 4.2f, 0.22f), tex_dark, false, 1.0f);
+    add_box("hub_tunnel_frame_west_right",  glm::vec3(-hub_shell_radius + 0.25f, 2.1f, hub_center.z + hub_tunnel_half_width), glm::vec3(0.35f, 4.2f, 0.22f), tex_dark, false, 1.0f);
+    add_box("hub_tunnel_frame_south_left",  glm::vec3(-hub_tunnel_half_width, 2.1f, hub_center.z + hub_shell_radius - 0.25f), glm::vec3(0.22f, 4.2f, 0.35f), tex_dark, false, 1.0f);
+    add_box("hub_tunnel_frame_south_right", glm::vec3( hub_tunnel_half_width, 2.1f, hub_center.z + hub_shell_radius - 0.25f), glm::vec3(0.22f, 4.2f, 0.35f), tex_dark, false, 1.0f);
+    add_box("hub_tunnel_frame_north_left",  glm::vec3(-hub_tunnel_half_width, 2.1f, hub_center.z - hub_shell_radius + 0.25f), glm::vec3(0.22f, 4.2f, 0.35f), tex_dark, false, 1.0f);
+    add_box("hub_tunnel_frame_north_right", glm::vec3( hub_tunnel_half_width, 2.1f, hub_center.z - hub_shell_radius + 0.25f), glm::vec3(0.22f, 4.2f, 0.35f), tex_dark, false, 1.0f);
+    add_box("hub_tunnel_frame_east_top",    glm::vec3( hub_shell_radius - 0.25f, 4.25f, hub_center.z), glm::vec3(0.35f, 0.25f, hub_tunnel_half_width * 2.0f), tex_dark, false, 1.0f);
+    add_box("hub_tunnel_frame_west_top",    glm::vec3(-hub_shell_radius + 0.25f, 4.25f, hub_center.z), glm::vec3(0.35f, 0.25f, hub_tunnel_half_width * 2.0f), tex_dark, false, 1.0f);
+    add_box("hub_tunnel_frame_south_top",   glm::vec3(0.0f, 4.25f, hub_center.z + hub_shell_radius - 0.25f), glm::vec3(hub_tunnel_half_width * 2.0f, 0.25f, 0.35f), tex_dark, false, 1.0f);
+    add_box("hub_tunnel_frame_north_top",   glm::vec3(0.0f, 4.25f, hub_center.z - hub_shell_radius + 0.25f), glm::vec3(hub_tunnel_half_width * 2.0f, 0.25f, 0.35f), tex_dark, false, 1.0f);
+
+    // Hub catwalks: center octagon gives flat entrances in all four directions.
+    // The diagonal rail pieces are visual because collision is axis-aligned.
+    constexpr float hub_oct_radius = 6.5f;
+    constexpr float hub_oct_apothem = hub_oct_radius * 0.9238795f;
+    constexpr float hub_oct_corner = hub_oct_radius * 0.3826834f;
+
+    auto hub_platform = std::make_shared<Model>("objects/oct_platform.obj", shader_prog, tex_catwalk);
+    hub_platform->pivot_position = glm::vec3(hub_center.x, 0.16f, hub_center.z);
+    hub_platform->scale = glm::vec3(hub_oct_radius, 0.32f, hub_oct_radius);
+    scene["hub_platform_center_oct"] = hub_platform;
+
+    add_box("hub_catwalk_west",  glm::vec3(-14.5f, 0.12f, hub_center.z), glm::vec3(17.0f, 0.24f, 2.0f), tex_catwalk);
+    add_box("hub_catwalk_east",  glm::vec3( 14.5f, 0.12f, hub_center.z), glm::vec3(17.0f, 0.24f, 2.0f), tex_catwalk);
+    add_box("hub_catwalk_south", glm::vec3(  0.0f, 0.12f, 1.25f), glm::vec3(2.0f, 0.24f, 15.5f), tex_catwalk);
+    add_box("hub_catwalk_north", glm::vec3(  0.0f, 0.12f, -24.75f), glm::vec3(2.0f, 0.24f, 12.5f), tex_catwalk);
+
+    auto add_hub_rail = [&](const std::string& name, glm::vec3 position, float length, float angle_degrees, bool collides = false) {
+        auto rail = add_box(name, position, glm::vec3(length, 0.25f, 0.22f), tex_dark, collides, 1.0f);
+        rail->eulerAngles.y = angle_degrees;
+        return rail;
+    };
+
+    auto add_hub_rail_between = [&](const std::string& name, glm::vec2 a, glm::vec2 b, bool collides = false, float angle_offset = 0.0f) {
+        const glm::vec2 mid = (a + b) * 0.5f;
+        const glm::vec2 delta = b - a;
+        const float length = glm::length(delta);
+        const float angle_degrees = glm::degrees(std::atan2(delta.y, delta.x)) + angle_offset;
+        return add_hub_rail(name, glm::vec3(mid.x, 0.9f, hub_center.z + mid.y), length, angle_degrees, collides);
+    };
+
+    const float rail_y = 0.9f;
+    add_box("hub_oct_rail_west_north", glm::vec3(-hub_oct_apothem, rail_y, hub_center.z - 1.8f), glm::vec3(0.22f, 0.25f, hub_oct_corner - 1.1f), tex_dark, true, 1.0f);
+    add_box("hub_oct_rail_west_south", glm::vec3(-hub_oct_apothem, rail_y, hub_center.z + 1.8f), glm::vec3(0.22f, 0.25f, hub_oct_corner - 1.1f), tex_dark, true, 1.0f);
+    add_box("hub_oct_rail_east_north", glm::vec3( hub_oct_apothem, rail_y, hub_center.z - 1.8f), glm::vec3(0.22f, 0.25f, hub_oct_corner - 1.1f), tex_dark, true, 1.0f);
+    add_box("hub_oct_rail_east_south", glm::vec3( hub_oct_apothem, rail_y, hub_center.z + 1.8f), glm::vec3(0.22f, 0.25f, hub_oct_corner - 1.1f), tex_dark, true, 1.0f);
+    add_hub_rail_between("hub_oct_rail_south_left",  glm::vec2(-hub_oct_corner,  hub_oct_apothem), glm::vec2(-1.1f,  hub_oct_apothem), true);
+    add_hub_rail_between("hub_oct_rail_south_right", glm::vec2( 1.1f,  hub_oct_apothem), glm::vec2( hub_oct_corner,  hub_oct_apothem), true);
+    add_hub_rail_between("hub_oct_rail_north_left",  glm::vec2(-hub_oct_corner, -hub_oct_apothem), glm::vec2(-1.1f, -hub_oct_apothem), true);
+    add_hub_rail_between("hub_oct_rail_north_right", glm::vec2( 1.1f, -hub_oct_apothem), glm::vec2( hub_oct_corner, -hub_oct_apothem), true);
+    add_hub_rail_between("hub_oct_rail_sw", glm::vec2(-hub_oct_apothem,  hub_oct_corner), glm::vec2(-hub_oct_corner,  hub_oct_apothem), false, 90.0f);
+    add_hub_rail_between("hub_oct_rail_nw", glm::vec2(-hub_oct_apothem, -hub_oct_corner), glm::vec2(-hub_oct_corner, -hub_oct_apothem), false, 90.0f);
+    add_hub_rail_between("hub_oct_rail_ne", glm::vec2( hub_oct_apothem, -hub_oct_corner), glm::vec2( hub_oct_corner, -hub_oct_apothem), false, 90.0f);
+    add_hub_rail_between("hub_oct_rail_se", glm::vec2( hub_oct_apothem,  hub_oct_corner), glm::vec2( hub_oct_corner,  hub_oct_apothem), false, 90.0f);
+    add_hub_rail("hub_rail_west_north", glm::vec3(-14.5f, rail_y, hub_center.z - 1.0f), 17.0f, 0.0f, true);
+    add_hub_rail("hub_rail_west_south", glm::vec3(-14.5f, rail_y, hub_center.z + 1.0f), 17.0f, 0.0f, true);
+    add_hub_rail("hub_rail_east_north", glm::vec3( 14.5f, rail_y, hub_center.z - 1.0f), 17.0f, 0.0f, true);
+    add_hub_rail("hub_rail_east_south", glm::vec3( 14.5f, rail_y, hub_center.z + 1.0f), 17.0f, 0.0f, true);
+    add_box("hub_rail_south_left",  glm::vec3(-1.0f, rail_y, 1.25f), glm::vec3(0.22f, 0.25f, 15.5f), tex_dark, true, 1.0f);
+    add_box("hub_rail_south_right", glm::vec3( 1.0f, rail_y, 1.25f), glm::vec3(0.22f, 0.25f, 15.5f), tex_dark, true, 1.0f);
+    add_box("hub_rail_north_left",  glm::vec3(-1.0f, rail_y, -24.75f), glm::vec3(0.22f, 0.25f, 12.5f), tex_dark, true, 1.0f);
+    add_box("hub_rail_north_right", glm::vec3( 1.0f, rail_y, -24.75f), glm::vec3(0.22f, 0.25f, 12.5f), tex_dark, true, 1.0f);
 
     add_box("hex_block_north_left", glm::vec3(-7.2f, 2.8f, -29.6f), glm::vec3(6.5f, 5.6f, 0.8f), tex_wall, true, 1.5f);
     add_box("hex_block_north_right", glm::vec3(7.2f, 2.8f, -29.6f), glm::vec3(6.5f, 5.6f, 0.8f), tex_wall, true, 1.5f);
@@ -425,7 +491,7 @@ void App::init_assets(void) {
     add_box("gate_frame_right", glm::vec3(5.6f, 2.0f, -39.0f), glm::vec3(1.0f, 4.0f, 2.4f), tex_dark, true, 1.5f);
 
     auto tex_pedestal = std::make_shared<Texture>(glm::vec3(0.11f, 0.13f, 0.16f));
-    auto hub_pedestal = std::make_shared<Model>("objects/hex_pedestal.obj", shader_prog, tex_pedestal);
+    auto hub_pedestal = std::make_shared<Model>("objects/oct_pedestal.obj", shader_prog, tex_pedestal);
     hub_pedestal->pivot_position = hub_center;
     scene["hub_orb_pedestal"] = hub_pedestal;
 
@@ -559,8 +625,8 @@ int App::run(void)
 			}
 
 			if (!spot_lights.empty()) {
-				spot_lights[0].position = camera.Position;
-				spot_lights[0].direction = camera.Front;
+				spot_lights[0].position = camera.Position + camera.Front * 0.18f - camera.Up * 0.12f;
+				spot_lights[0].direction = glm::normalize(camera.Front);
 			}
 
 			update_particles(delta_t);
@@ -568,10 +634,11 @@ int App::run(void)
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			shader_prog->use();
-			shader_prog->setUniform("uV_m", camera.GetViewMatrix());
+			const glm::mat4 view = camera.GetViewMatrix();
+			shader_prog->setUniform("uV_m", view);
 			shader_prog->setUniform("uP_m", projection_matrix);
 
-			shader_prog->setUniform("dir_light_direction", dir_light.direction);
+			shader_prog->setUniform("dir_light_direction", glm::normalize(glm::mat3(view) * dir_light.direction));
 			shader_prog->setUniform("dir_light_ambient", dir_light.ambient);
 			shader_prog->setUniform("dir_light_diffuse", dir_light.diffuse);
 			shader_prog->setUniform("dir_light_specular", dir_light.specular);
@@ -579,15 +646,15 @@ int App::run(void)
 			shader_prog->setUniform("num_point_lights", (int)point_lights.size());
 			for (size_t i = 0; i < point_lights.size() && i < 3; i++) {
 				std::string idx = std::to_string(i);
-				shader_prog->setUniform("point_light_position[" + idx + "]", point_lights[i].position);
+				shader_prog->setUniform("point_light_position[" + idx + "]", glm::vec3(view * glm::vec4(point_lights[i].position, 1.0f)));
 				shader_prog->setUniform("point_light_ambient[" + idx + "]", point_lights[i].ambient);
 				shader_prog->setUniform("point_light_diffuse[" + idx + "]", point_lights[i].diffuse);
 				shader_prog->setUniform("point_light_specular[" + idx + "]", point_lights[i].specular);
 			}
 
 			if (!spot_lights.empty()) {
-				shader_prog->setUniform("spot_light_position", spot_lights[0].position);
-				shader_prog->setUniform("spot_light_direction", spot_lights[0].direction);
+				shader_prog->setUniform("spot_light_position", glm::vec3(view * glm::vec4(spot_lights[0].position, 1.0f)));
+				shader_prog->setUniform("spot_light_direction", glm::normalize(glm::mat3(view) * spot_lights[0].direction));
 				shader_prog->setUniform("spot_light_ambient", spot_lights[0].ambient);
 				shader_prog->setUniform("spot_light_diffuse", spot_lights[0].diffuse);
 				shader_prog->setUniform("spot_light_specular", spot_lights[0].specular);
