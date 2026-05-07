@@ -3,10 +3,10 @@
 class NonCopyable
 {
   public: 
-    NonCopyable (const NonCopyable &) = delete;              // copy-constructor
-    NonCopyable & operator = (const NonCopyable &) = delete; // assign operator
+    NonCopyable (const NonCopyable &) = delete;
+    NonCopyable & operator = (const NonCopyable &) = delete;
 
   protected:
     NonCopyable () = default;
-    ~NonCopyable () = default; // Protected non-virtual destructor
+    ~NonCopyable () = default;
 };

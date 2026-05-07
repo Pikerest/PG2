@@ -1,20 +1,14 @@
-// app.cpp
-// Main application implementation for the pg2 project
-// author: JJ
-
-// --- Standard library headers ------------------------------------------------
-#include <iostream>   // i/o streams
-#include <fstream>    // file input/output (used by JSON loader)
-#include <chrono>     // timing utilities
-#include <stack>      // example container (unused?)
-#include <random>     // random numbers
-#include <string>     // std::string used in window title
+#include <iostream>
+#include <fstream>
+#include <chrono>
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <random>
+#include <string>
 #include <sstream>
 #include <iomanip>
 
-// --- Third-party libraries ---------------------------------------------------
-
-// OpenCV: conditionally include whichever installed path is available
 #if __has_include(<opencv2/opencv.hpp>)
     #include <opencv2/opencv.hpp>
 #elif __has_include(<opencv4/opencv2/opencv.hpp>)
@@ -23,33 +17,24 @@
     #error "OpenCV header files not found!"
 #endif
 
-// OpenGL Extension Wrangler (GLEW) - provides modern GL functions
 #include <GL/glew.h>
-// Note: using WGLEW on Windows; adjust for other platforms if necessary
-
-// GLFW toolkit for window/context creation and input handling
 #include <GLFW/glfw3.h>
 
-// GLM: OpenGL mathematics library
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtc/constants.hpp>  // glm::two_pi - needed for particles
+#include <glm/gtc/constants.hpp>
 
-// Assets and project-specific headers
 #include "assets.hpp"
 #include "app.hpp"
 #include "Texture.hpp"
 
-// ImGUI: immediate-mode GUI for debug interfaces
-#include <imgui.h>               // core
-#include <imgui_impl_glfw.h>     // GLFW binding
-#include <imgui_impl_opengl3.h>  // OpenGL3 binding
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
-// JSON parsing library
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
-// OpenGL debug callback (Task 1) - from lecture
 static void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
     auto const src_str = [source]() {
         switch (source) {
@@ -94,57 +79,37 @@ static void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, 
         ", message = '" << message << '\'' << std::endl;
 }
 
-// // GLFW error callback (Task 2)
 static void glfw_error_callback(int error, const char* description) {
     std::cerr << "GLFW Error " << error << ": " << description << std::endl;
 }
 
 App::App()
 {
-    // default constructor
-    // nothing to do here (so far...)
     std::cout << "Constructed...\n";
 }
 
 bool App::init() {
 
     try {
-        // -------------------------
-        // GLFW INIT
-        // -------------------------
         init_glfw();
 
         load_config("config.json");
 
-        // -------------------------
-        // GLEW INIT
-        // -------------------------
         init_glew();
 
-        // -------------------------
-        // OPENGL DEBUG
-        // -------------------------
         init_gl_debug();
 
-        // -------------------------
-        // VIEWPORT + BASIC STATE
-        // -------------------------
         glfwGetFramebufferSize(window, &width, &height);
         update_projection_matrix();
         glViewport(0, 0, width, height);
 
-
         glEnable(GL_DEPTH_TEST);
-        glDisable(GL_CULL_FACE); // Ensure triangle is visible from both sides
-        glEnable(GL_MULTISAMPLE); // Task 1: Enable multisampling by default
+        glDisable(GL_CULL_FACE);
+        glEnable(GL_MULTISAMPLE);
 
-        // Task 1 (Transparency): Set up blending function and depth comparison
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDepthFunc(GL_LEQUAL);
 
-        // -------------------------
-        // PRINT INFO
-        // -------------------------
         print_glfw_info();
         print_opencv_info();
         print_glm_info();
@@ -152,18 +117,11 @@ bool App::init() {
 
         std::cout << "Initialized...\n";
 
-		// init assets (models, sounds, textures, level map, ...)
 		init_assets();
-
-		// Initialize ImGUI
 		init_imgui();
-
-		// Initialize OpenCV (if needed)
 		init_opencv();
 
-        // Task 1.3: show window after all is loaded
         glfwShowWindow(window);
-
 
         return true;
     }
@@ -195,13 +153,8 @@ bool App::load_config(const std::string& filename)
 }
 
 
-// ---------------------------------------------------------------------------
-// GUI initialization
-// ---------------------------------------------------------------------------
 void App::init_imgui()
 {
-	// see https://github.com/ocornut/imgui/wiki/Getting-Started
-
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -209,36 +162,23 @@ void App::init_imgui()
 	std::cout << "ImGUI version: " << ImGui::GetVersion() << "\n";
 }
 
-// ---------------------------------------------------------------------------
-// OpenCV support stub
-// ---------------------------------------------------------------------------
 void App::init_opencv()
 {
-	// Placeholder for any OpenCV-specific setup (e.g. allocate windows, set
-	// parameters).  At the moment the application does not create any
-	// OpenCV windows during initialization.
 }
 
-// ---------------------------------------------------------------------------
-// GLFW initialization and window creation
-// ---------------------------------------------------------------------------
 void App::init_glfw(void)
 {
-	// register error callback before any GLFW calls
 	glfwSetErrorCallback(glfw_error_callback);
 
 	if (!glfwInit())
 		throw std::runtime_error("GLFW initialization failed.");
 
-	// OpenGL 4.6 core
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
 
-	glfwWindowHint(GLFW_SAMPLES, 4); // Task 1: set MSAA level to 4
-
-	// Task 1.3: hide window during initialization
+	glfwWindowHint(GLFW_SAMPLES, 4);
 	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
 	window = glfwCreateWindow(window_width,
@@ -253,10 +193,8 @@ void App::init_glfw(void)
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(is_vsync_on ? 1 : 0);
 
-	// Task 1.2: initial mouse capture
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-	// Register callbacks
 	glfwSetWindowUserPointer(window, this);
 	glfwSetKeyCallback(window, glfw_key_callback);
 	glfwSetFramebufferSizeCallback(window, glfw_fbsize_callback);
@@ -265,37 +203,25 @@ void App::init_glfw(void)
 	glfwSetScrollCallback(window, glfw_scroll_callback);
 }
 
-// ---------------------------------------------------------------------------
-// GLEW initialization
-// ---------------------------------------------------------------------------
 void App::init_glew(void)
 {
-	// enable experimental features to get modern functionality
 	glewExperimental = GL_TRUE;
 
 	if (glewInit() != GLEW_OK)
 		throw std::runtime_error("GLEW initialization failed.");
 
-	// make sure necessary extension for Direct State Access is available
 	if (!GLEW_ARB_direct_state_access)
 		throw std::runtime_error("No Direct State Access support :-(");
 }
 
-// ---------------------------------------------------------------------------
-// OpenGL debug output setup
-// ---------------------------------------------------------------------------
 void App::init_gl_debug()
 {
 	if (GLEW_ARB_debug_output) {
-		// enable synchronous debug messages and register our callback
 		glEnable(GL_DEBUG_OUTPUT);
 		glDebugMessageCallback(gl_debug_callback, nullptr);
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Logging helpers
-// ---------------------------------------------------------------------------
 void App::print_gl_info()
 {
 	std::cout << "OpenGL Vendor:   " << glGetString(GL_VENDOR) << std::endl;
@@ -306,20 +232,16 @@ void App::print_gl_info()
 
 void App::print_glfw_info(void)
 {
-	// display the version of GLFW used for diagnostics
 	std::cout << "GLFW Version:    " << glfwGetVersionString() << std::endl;
 }
 
 void App::print_opencv_info()
 {
-	// report OpenCV version if OpenCV is in use
 	std::cout << "OpenCV Version:  " << CV_VERSION << std::endl;
 }
 
 void App::print_glm_info()
 {
-	// GLM is currently not included, so version info is not available
-	// Uncomment glm includes in app.cpp and the header if you need this
 	std::cout << "GLM Version:     (not included)" << std::endl;
 }
 
@@ -329,137 +251,223 @@ void App::init_assets(void) {
     shader_prog->use();
     shader_prog->setUniform("uTexture", 0);
 
-    // Initialize directional light (sun)
-    dir_light.direction = glm::normalize(glm::vec3(1.0f, -1.0f, -1.0f));
-    dir_light.ambient = glm::vec3(0.2f, 0.2f, 0.2f);
-    dir_light.diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
+    dir_light.direction = glm::normalize(glm::vec3(-0.4f, -1.0f, -0.2f));
+    dir_light.ambient = glm::vec3(0.08f, 0.10f, 0.12f);
+    dir_light.diffuse = glm::vec3(0.25f, 0.28f, 0.32f);
     dir_light.specular = glm::vec3(1.0f, 1.0f, 1.0f);
 
-    // Initialize 3 point lights at different positions
-    PointLight light1;
-    light1.position = glm::vec3(5.0f, 3.0f, 3.0f);
-    light1.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
-    light1.diffuse = glm::vec3(1.0f, 0.5f, 0.5f);
-    light1.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-    point_lights.push_back(light1);
+    point_lights.clear();
+    point_lights.push_back({ glm::vec3(-9.0f, 3.0f, -4.0f), glm::vec3(0.05f), glm::vec3(1.0f, 0.25f, 0.15f), glm::vec3(1.0f) });
+    point_lights.push_back({ glm::vec3(9.0f, 3.0f, -4.0f), glm::vec3(0.04f), glm::vec3(0.20f, 0.75f, 1.0f), glm::vec3(1.0f) });
+    point_lights.push_back({ glm::vec3(0.0f, 4.0f, -15.0f), glm::vec3(0.04f), glm::vec3(0.35f, 1.0f, 0.45f), glm::vec3(1.0f) });
 
-    PointLight light2;
-    light2.position = glm::vec3(-5.0f, 3.0f, 3.0f);
-    light2.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
-    light2.diffuse = glm::vec3(0.5f, 1.0f, 0.5f);
-    light2.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-    point_lights.push_back(light2);
-
-    PointLight light3;
-    light3.position = glm::vec3(0.0f, -3.0f, 3.0f);
-    light3.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
-    light3.diffuse = glm::vec3(0.5f, 0.5f, 1.0f);
-    light3.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-    point_lights.push_back(light3);
-
-    // Initialize spot light (headlight attached to camera)
     SpotLight headlight;
     headlight.position = glm::vec3(0.0f, 0.0f, 0.0f);
     headlight.direction = glm::vec3(0.0f, 0.0f, -1.0f);
-    headlight.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
-    headlight.diffuse = glm::vec3(1.0f, 1.0f, 0.8f);
+    headlight.ambient = glm::vec3(0.02f, 0.02f, 0.02f);
+    headlight.diffuse = glm::vec3(1.0f, 0.96f, 0.78f);
     headlight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-    headlight.cutoff = 12.5f;
-    headlight.outer_cutoff = 17.5f;
+    headlight.cutoff = 15.0f;
+    headlight.outer_cutoff = 23.0f;
+    spot_lights.clear();
     spot_lights.push_back(headlight);
 
-    // === SCENE SETUP ===
-
-    // Textures
     auto tex_box = std::make_shared<Texture>("textures/box.png");
-    auto tex_gray = std::make_shared<Texture>(glm::vec3(0.5f, 0.5f, 0.5f));
-    auto tex_dark = std::make_shared<Texture>(glm::vec3(0.3f, 0.3f, 0.35f));
-    auto tex_white = std::make_shared<Texture>(glm::vec3(0.9f, 0.9f, 0.9f));
+    auto tex_floor = std::make_shared<Texture>(glm::vec3(0.30f, 0.32f, 0.30f));
+    auto tex_wall = std::make_shared<Texture>(glm::vec3(0.22f, 0.25f, 0.28f));
+    auto tex_dark = std::make_shared<Texture>(glm::vec3(0.08f, 0.09f, 0.10f));
+    auto tex_terminal = std::make_shared<Texture>(glm::vec3(0.12f, 0.45f, 0.55f));
+    auto tex_enemy = std::make_shared<Texture>(glm::vec3(0.55f, 0.18f, 0.16f));
+    auto tex_catwalk = std::make_shared<Texture>(glm::vec3(0.55f, 0.05f, 0.04f));
+    auto tex_red_glass = std::make_shared<Texture>(glm::vec4(1.0f, 0.12f, 0.08f, 1.0f));
+    auto tex_blue_glass = std::make_shared<Texture>(glm::vec4(0.15f, 0.45f, 1.0f, 1.0f));
+    auto tex_green_glass = std::make_shared<Texture>(glm::vec4(0.25f, 1.0f, 0.25f, 1.0f));
 
-    // --- OPAQUE OBJECTS ---
+    scene.clear();
+    reactors.clear();
+    enemies.clear();
+    fire_sources.clear();
+    hub_door_panels.clear();
+    reactors_active = 0;
+    gate_unlocked = false;
 
-    // Ground plane
-    auto ground = std::make_shared<Model>("objects/plane.obj", shader_prog, tex_gray);
-    ground->pivot_position = glm::vec3(0.0f, 0.0f, 0.0f);
-    ground->scale = glm::vec3(20.0f, 1.0f, 20.0f);
-    ground->material_alpha = 1.0f;
-    ground->is_transparent = false;
-    scene["ground"] = ground;
+    add_box("spawn_floor", glm::vec3(0.0f, -0.05f, 25.0f), glm::vec3(8.0f, 0.1f, 12.0f), tex_floor);
+    add_box("entry_corridor_floor", glm::vec3(0.0f, -0.05f, 12.0f), glm::vec3(7.2f, 0.1f, 25.0f), tex_floor);
+    add_box("hub_pit_floor", glm::vec3(0.0f, -14.5f, -12.5f), glm::vec3(34.0f, 0.4f, 34.0f), tex_dark);
+    // Left wing floors — wider corridor + T-junction + two reactor rooms
+    add_box("left_main_floor",      glm::vec3(-33.0f, -0.05f, -12.5f), glm::vec3(22.0f, 0.1f, 10.0f), tex_floor);
+    add_box("left_junction_floor",  glm::vec3(-50.5f, -0.05f, -18.0f), glm::vec3(13.0f, 0.1f, 32.0f), tex_floor);
+    add_box("r1_corridor_floor",    glm::vec3(-62.0f, -0.05f,  -5.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_floor);
+    add_box("reactor1_floor",       glm::vec3(-77.0f, -0.05f,  -3.0f), glm::vec3(20.0f, 0.1f, 22.0f), tex_floor);
+    add_box("r2_corridor_floor",    glm::vec3(-62.0f, -0.05f, -29.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_floor);
+    add_box("reactor2_floor",       glm::vec3(-77.0f, -0.05f, -29.0f), glm::vec3(20.0f, 0.1f, 18.0f), tex_floor);
+    // Right wing floors
+    add_box("east_corridor_floor",  glm::vec3( 33.5f, -0.05f, -12.5f), glm::vec3(23.0f, 0.1f, 10.0f), tex_floor);
+    add_box("warehouse_floor",      glm::vec3( 63.0f, -0.05f, -17.0f), glm::vec3(36.0f, 0.1f, 46.0f), tex_floor);
+    add_box("reactor3_floor",       glm::vec3( 89.0f, -0.05f, -18.0f), glm::vec3(14.0f, 0.1f, 22.0f), tex_floor);
+    add_box("escape_corridor_floor", glm::vec3(0.0f, -0.05f, -37.0f), glm::vec3(8.5f, 0.1f, 18.0f), tex_floor);
 
-    // Main rotating cube (the original model, now part of scene)
-    model = std::make_shared<Model>("objects/cube_triangles.obj", shader_prog, tex_box);
-    model->pivot_position = glm::vec3(0.0f, 1.5f, 0.0f);
-    model->scale = glm::vec3(1.0f);
-    model->is_transparent = false;
-    model->collides = true;
-    model->bounding_radius = 0.8f;
-    scene["rotating_cube"] = model;
+    add_box("spawn_room_back_wall", glm::vec3(0.0f, 2.0f, 31.2f), glm::vec3(7.8f, 4.0f, 0.7f), tex_dark, true, 2.0f);
+    add_box("spawn_room_left_wall", glm::vec3(-4.0f, 2.0f, 25.0f), glm::vec3(0.8f, 4.0f, 12.0f), tex_wall, true, 1.5f);
+    add_box("spawn_room_right_wall", glm::vec3(4.0f, 2.0f, 25.0f), glm::vec3(0.8f, 4.0f, 12.0f), tex_wall, true, 1.5f);
+    add_box("entry_left_wall", glm::vec3(-3.6f, 2.0f, 11.5f), glm::vec3(0.8f, 4.0f, 25.0f), tex_wall, true, 1.5f);
+    add_box("entry_right_wall", glm::vec3(3.6f, 2.0f, 11.5f), glm::vec3(0.8f, 4.0f, 25.0f), tex_wall, true, 1.5f);
+    add_box("sealed_start_door", glm::vec3(0.0f, 2.0f, 28.0f), glm::vec3(6.5f, 4.0f, 0.7f), tex_dark, true, 2.0f);
+    add_box("entry_cover_a", glm::vec3(-1.9f, 0.6f, 5.0f), glm::vec3(1.3f, 1.2f, 1.3f), tex_box, true, 1.0f);
+    add_box("entry_cover_b", glm::vec3(2.0f, 0.6f, -0.5f), glm::vec3(1.3f, 1.2f, 1.3f), tex_box, true, 1.0f);
 
-    // Obstacle cubes (opaque, collidable)
-    auto obstacle1 = std::make_shared<Model>("objects/cube_triangles.obj", shader_prog, tex_dark);
-    obstacle1->pivot_position = glm::vec3(5.0f, 1.0f, -3.0f);
-    obstacle1->scale = glm::vec3(2.0f, 2.0f, 2.0f);
-    obstacle1->is_transparent = false;
-    obstacle1->collides = true;
-    obstacle1->bounding_radius = 1.8f;
-    scene["obstacle1"] = obstacle1;
+    const glm::vec3 hub_center(0.0f, 0.0f, -12.5f);
 
-    auto obstacle2 = std::make_shared<Model>("objects/cube_triangles.obj", shader_prog, tex_dark);
-    obstacle2->pivot_position = glm::vec3(-4.0f, 1.0f, 5.0f);
-    obstacle2->scale = glm::vec3(1.5f, 3.0f, 1.5f);
-    obstacle2->is_transparent = false;
-    obstacle2->collides = true;
-    obstacle2->bounding_radius = 1.5f;
-    scene["obstacle2"] = obstacle2;
+    // Truncated icosahedron hub shell — interior-facing normals, semi-transparent
+    auto tex_icosa = std::make_shared<Texture>(glm::vec4(0.18f, 0.82f, 0.62f, 1.0f));
+    auto hub_icosa = std::make_shared<Model>("objects/icosahedron_hub.obj", shader_prog, tex_icosa);
+    hub_icosa->pivot_position = hub_center;
+    hub_icosa->scale = glm::vec3(1.45f);
+    hub_icosa->is_transparent = true;
+    hub_icosa->material_alpha = 0.19f;
+    scene["hub_icosahedron"] = hub_icosa;
 
-    auto obstacle3 = std::make_shared<Model>("objects/cube_triangles.obj", shader_prog, tex_white);
-    obstacle3->pivot_position = glm::vec3(8.0f, 1.0f, 7.0f);
-    obstacle3->scale = glm::vec3(1.0f, 1.0f, 4.0f);
-    obstacle3->is_transparent = false;
-    obstacle3->collides = true;
-    obstacle3->bounding_radius = 2.2f;
-    scene["obstacle3"] = obstacle3;
+    // Hub catwalks — start at platform edges, end just inside icosahedron inradius (~23)
+    // Platform: x ±4.7, z -16.6 to -8.4.  Icosa inradius ≈ 21 usable.
+    add_box("hub_platform_center", glm::vec3(hub_center.x, 0.16f, hub_center.z), glm::vec3(9.4f, 0.32f, 8.2f), tex_catwalk);
+    add_box("hub_catwalk_west",  glm::vec3(-12.85f, 0.12f, -12.5f), glm::vec3(16.3f, 0.24f, 2.0f), tex_catwalk);
+    add_box("hub_catwalk_east",  glm::vec3( 12.85f, 0.12f, -12.5f), glm::vec3(16.3f, 0.24f, 2.0f), tex_catwalk);
+    add_box("hub_catwalk_south", glm::vec3(  0.0f, 0.12f,   0.3f), glm::vec3(2.0f, 0.24f, 17.4f), tex_catwalk);
+    add_box("hub_catwalk_north", glm::vec3(  0.0f, 0.12f, -23.8f), glm::vec3(2.0f, 0.24f, 14.4f), tex_catwalk);
 
-    // --- TRANSPARENT OBJECTS (Task 1: at least 3 semi-transparent objects) ---
-    // Using material with A < 1.0 (NOT if(alpha<0.1){discard;})
+    add_box("hub_rail_west_north", glm::vec3(-12.85f, 0.9f, -13.5f), glm::vec3(16.3f, 0.25f, 0.22f), tex_dark, true, 1.0f);
+    add_box("hub_rail_west_south", glm::vec3(-12.85f, 0.9f, -11.5f), glm::vec3(16.3f, 0.25f, 0.22f), tex_dark, true, 1.0f);
+    add_box("hub_rail_east_north", glm::vec3( 12.85f, 0.9f, -13.5f), glm::vec3(16.3f, 0.25f, 0.22f), tex_dark, true, 1.0f);
+    add_box("hub_rail_east_south", glm::vec3( 12.85f, 0.9f, -11.5f), glm::vec3(16.3f, 0.25f, 0.22f), tex_dark, true, 1.0f);
+    add_box("hub_rail_south_left",  glm::vec3(-1.0f, 0.9f,   0.3f), glm::vec3(0.22f, 0.25f, 17.4f), tex_dark, true, 1.0f);
+    add_box("hub_rail_south_right", glm::vec3( 1.0f, 0.9f,   0.3f), glm::vec3(0.22f, 0.25f, 17.4f), tex_dark, true, 1.0f);
+    add_box("hub_rail_north_left",  glm::vec3(-1.0f, 0.9f, -23.8f), glm::vec3(0.22f, 0.25f, 14.4f), tex_dark, true, 1.0f);
+    add_box("hub_rail_north_right", glm::vec3( 1.0f, 0.9f, -23.8f), glm::vec3(0.22f, 0.25f, 14.4f), tex_dark, true, 1.0f);
 
-    // Transparent Red Glass Panel
-    auto tex_red_glass = std::make_shared<Texture>(glm::vec4(1.0f, 0.2f, 0.2f, 1.0f));
-    auto glass_red = std::make_shared<Model>("objects/cube_triangles.obj", shader_prog, tex_red_glass);
-    glass_red->pivot_position = glm::vec3(-3.0f, 2.0f, -5.0f);
-    glass_red->scale = glm::vec3(3.0f, 4.0f, 0.1f);   // flat panel
-    glass_red->is_transparent = true;
-    glass_red->material_alpha = 0.4f;   // 40% opaque
-    scene["glass_red"] = glass_red;
+    add_box("hex_block_north_left", glm::vec3(-7.2f, 2.8f, -29.6f), glm::vec3(6.5f, 5.6f, 0.8f), tex_wall, true, 1.5f);
+    add_box("hex_block_north_right", glm::vec3(7.2f, 2.8f, -29.6f), glm::vec3(6.5f, 5.6f, 0.8f), tex_wall, true, 1.5f);
 
-    // Transparent Blue Glass Panel
-    auto tex_blue_glass = std::make_shared<Texture>(glm::vec4(0.2f, 0.3f, 1.0f, 1.0f));
-    auto glass_blue = std::make_shared<Model>("objects/cube_triangles.obj", shader_prog, tex_blue_glass);
-    glass_blue->pivot_position = glm::vec3(3.0f, 2.0f, -2.0f);
-    glass_blue->scale = glm::vec3(0.1f, 4.0f, 3.0f);  // flat panel, rotated
-    glass_blue->is_transparent = true;
-    glass_blue->material_alpha = 0.35f;  // 35% opaque
-    scene["glass_blue"] = glass_blue;
+    hub_door_panels.push_back(add_box("hub_hex_door_center", glm::vec3(0.0f, 2.4f, -29.6f), glm::vec3(4.2f, 4.2f, 0.7f), tex_dark, true, 1.5f));
+    hub_door_panels.push_back(add_box("hub_hex_door_top", glm::vec3(0.0f, 4.4f, -29.6f), glm::vec3(2.6f, 1.4f, 0.7f), tex_dark, true, 1.5f));
+    hub_door_panels.push_back(add_box("hub_hex_door_bottom", glm::vec3(0.0f, 0.4f, -29.6f), glm::vec3(2.6f, 1.4f, 0.7f), tex_dark, true, 1.5f));
+    hub_door_panels.push_back(add_box("hub_hex_door_left", glm::vec3(-2.8f, 2.4f, -29.6f), glm::vec3(1.4f, 2.8f, 0.7f), tex_dark, true, 1.5f));
+    hub_door_panels.push_back(add_box("hub_hex_door_right", glm::vec3(2.8f, 2.4f, -29.6f), glm::vec3(1.4f, 2.8f, 0.7f), tex_dark, true, 1.5f));
 
-    // Transparent Green Glass Cube
-    auto tex_green_glass = std::make_shared<Texture>(glm::vec4(0.2f, 1.0f, 0.3f, 1.0f));
-    auto glass_green = std::make_shared<Model>("objects/cube_triangles.obj", shader_prog, tex_green_glass);
-    glass_green->pivot_position = glm::vec3(0.0f, 3.0f, 4.0f);
-    glass_green->scale = glm::vec3(2.0f, 2.0f, 2.0f);
-    glass_green->is_transparent = true;
-    glass_green->material_alpha = 0.3f;  // 30% opaque
-    scene["glass_green"] = glass_green;
+    // === Left wing: main corridor → T-junction → Reactor 1 (south) + Reactor 2 (north) ===
+    // Main corridor (x=-25 to -44, z=-17.5 to -7.5)
+    add_box("left_main_corridor_north", glm::vec3(-33.0f, 2.0f, -17.5f), glm::vec3(22.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    add_box("left_main_corridor_south", glm::vec3(-33.0f, 2.0f,  -7.5f), glm::vec3(22.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
 
-    // Transparent Yellow Glass Panel (4th transparent object for bonus)
-    auto tex_yellow_glass = std::make_shared<Texture>(glm::vec4(1.0f, 0.9f, 0.1f, 1.0f));
-    auto glass_yellow = std::make_shared<Model>("objects/cube_triangles.obj", shader_prog, tex_yellow_glass);
-    glass_yellow->pivot_position = glm::vec3(-7.0f, 1.5f, 0.0f);
-    glass_yellow->scale = glm::vec3(0.1f, 3.0f, 5.0f);
-    glass_yellow->is_transparent = true;
-    glass_yellow->material_alpha = 0.25f;  // 25% opaque
-    scene["glass_yellow"] = glass_yellow;
+    // T-junction room (x=-44 to -57, z=-34 to -2)
+    add_box("left_junc_north_wall",  glm::vec3(-50.5f, 2.0f, -34.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    add_box("left_junc_south_wall",  glm::vec3(-50.5f, 2.0f,  -1.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    // East wall of junction — gap at z=-17.5 to -7.5 for corridor entry
+    add_box("left_junc_east_n",      glm::vec3(-44.5f, 2.0f, -26.0f), glm::vec3(0.8f, 4.0f, 16.0f), tex_wall, true, 1.5f);
+    add_box("left_junc_east_s",      glm::vec3(-44.5f, 2.0f,  -4.5f), glm::vec3(0.8f, 4.0f,  5.0f), tex_wall, true, 1.5f);
+    // West wall of junction — two gaps: R2 at z=-32 to -26, R1 at z=-8 to -2
+    add_box("left_junc_west_n",      glm::vec3(-57.0f, 2.0f, -33.0f), glm::vec3(0.8f, 4.0f,  2.0f), tex_wall, true, 1.5f);
+    add_box("left_junc_west_mid",    glm::vec3(-57.0f, 2.0f, -17.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_wall, true, 1.5f);
 
-    // --- PARTICLE TEMPLATE (Task 3) ---
+    // Reactor 1 corridor (south arm, z=-8 to -2, x=-57 to -67)
+    add_box("r1_corr_north_wall",    glm::vec3(-62.0f, 2.0f,  -8.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    add_box("r1_corr_south_wall",    glm::vec3(-62.0f, 2.0f,  -1.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+
+    // Reactor 1 room (x=-67 to -87, z=-14 to 8) — entry from east at z=-8 to -2
+    add_box("reactor1_room_west",    glm::vec3(-87.5f, 2.0f,  -3.0f), glm::vec3(0.8f, 4.0f, 22.0f), tex_wall, true, 1.5f);
+    add_box("reactor1_room_north",   glm::vec3(-77.0f, 2.0f, -14.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
+    add_box("reactor1_room_south",   glm::vec3(-77.0f, 2.0f,   8.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
+    add_box("reactor1_entry_n",      glm::vec3(-67.5f, 2.0f, -11.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
+    add_box("reactor1_entry_s",      glm::vec3(-67.5f, 2.0f,   5.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
+
+    // Reactor 2 corridor (north arm, z=-32 to -26, x=-57 to -67)
+    add_box("r2_corr_north_wall",    glm::vec3(-62.0f, 2.0f, -32.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    add_box("r2_corr_south_wall",    glm::vec3(-62.0f, 2.0f, -25.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+
+    // Reactor 2 room (x=-67 to -87, z=-38 to -20) — entry from east at z=-32 to -26
+    add_box("reactor2_room_west",    glm::vec3(-87.5f, 2.0f, -29.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_wall, true, 1.5f);
+    add_box("reactor2_room_north",   glm::vec3(-77.0f, 2.0f, -38.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
+    add_box("reactor2_room_south",   glm::vec3(-77.0f, 2.0f, -19.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
+    add_box("reactor2_entry_n",      glm::vec3(-67.5f, 2.0f, -35.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
+    add_box("reactor2_entry_s",      glm::vec3(-67.5f, 2.0f, -23.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
+
+    // === Right wing: east corridor → large warehouse → Reactor 3 behind hidden door ===
+    // East corridor (x=25 to 45, z=-17.5 to -7.5)
+    add_box("east_corridor_north",   glm::vec3( 33.5f, 2.0f, -17.5f), glm::vec3(23.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    add_box("east_corridor_south",   glm::vec3( 33.5f, 2.0f,  -7.5f), glm::vec3(23.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+
+    // Warehouse room (x=45 to 81, z=-40 to 6)
+    add_box("warehouse_north_wall",  glm::vec3( 63.0f, 2.0f, -40.5f), glm::vec3(36.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    add_box("warehouse_south_wall",  glm::vec3( 63.0f, 2.0f,   6.5f), glm::vec3(36.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    // West wall — gap at z=-17.5 to -7.5 for corridor entry
+    add_box("warehouse_west_n",      glm::vec3( 44.5f, 2.0f, -29.0f), glm::vec3(0.8f, 4.0f, 22.0f), tex_wall, true, 1.5f);
+    add_box("warehouse_west_s",      glm::vec3( 44.5f, 2.0f,  -1.0f), glm::vec3(0.8f, 4.0f,  8.0f), tex_wall, true, 1.5f);
+    // East wall — solid, with a hidden door panel at z=-28 to -20
+    add_box("warehouse_east_n",      glm::vec3( 81.5f, 2.0f, -34.0f), glm::vec3(0.8f, 4.0f, 12.0f), tex_wall, true, 1.5f);
+    add_box("warehouse_east_s",      glm::vec3( 81.5f, 2.0f,  -7.0f), glm::vec3(0.8f, 4.0f, 26.0f), tex_wall, true, 1.5f);
+    hidden_door_wall = add_box("warehouse_door_panel", glm::vec3( 81.5f, 2.0f, -24.0f), glm::vec3(0.8f, 4.0f, 8.0f), tex_dark, true, 1.5f);
+    hidden_door_btn  = add_box("warehouse_secret_btn", glm::vec3( 78.0f, 0.55f,-38.0f), glm::vec3(0.6f, 0.3f, 0.6f), tex_terminal, true, 0.5f);
+
+    // Crates inside warehouse
+    add_box("warehouse_crate_a",     glm::vec3( 55.0f, 0.8f, -30.0f), glm::vec3(3.4f, 1.6f, 3.4f), tex_box, true, 1.6f);
+    add_box("warehouse_crate_b",     glm::vec3( 68.0f, 0.8f,  -5.0f), glm::vec3(4.2f, 1.6f, 3.0f), tex_box, true, 1.6f);
+    add_box("warehouse_crate_c",     glm::vec3( 72.0f, 1.5f, -32.0f), glm::vec3(2.4f, 3.0f, 2.4f), tex_box, true, 1.5f);
+    add_box("warehouse_terminal_l",  glm::vec3( 50.0f, 1.0f, -10.0f), glm::vec3(2.4f, 2.0f, 2.5f), tex_dark, true, 1.4f);
+    add_box("warehouse_terminal_r",  glm::vec3( 75.0f, 1.0f, -35.0f), glm::vec3(2.4f, 2.0f, 2.5f), tex_dark, true, 1.4f);
+
+    // Reactor 3 room (x=81 to 96, z=-40 to -8) — west wall is shared with warehouse east wall above
+    add_box("reactor3_room_north",   glm::vec3( 88.5f, 2.0f, -40.5f), glm::vec3(14.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    add_box("reactor3_room_south",   glm::vec3( 88.5f, 2.0f,  -7.5f), glm::vec3(14.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    add_box("reactor3_room_east",    glm::vec3( 96.5f, 2.0f, -24.0f), glm::vec3(0.8f, 4.0f, 32.0f), tex_wall, true, 1.5f);
+
+    add_box("back_corridor_left", glm::vec3(-4.8f, 2.0f, -31.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_wall, true, 1.5f);
+    add_box("back_corridor_right", glm::vec3(4.8f, 2.0f, -31.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_wall, true, 1.5f);
+    add_box("gate_frame_left", glm::vec3(-5.6f, 2.0f, -39.0f), glm::vec3(1.0f, 4.0f, 2.4f), tex_dark, true, 1.5f);
+    add_box("gate_frame_right", glm::vec3(5.6f, 2.0f, -39.0f), glm::vec3(1.0f, 4.0f, 2.4f), tex_dark, true, 1.5f);
+
+    auto tex_pedestal = std::make_shared<Texture>(glm::vec3(0.11f, 0.13f, 0.16f));
+    auto hub_pedestal = std::make_shared<Model>("objects/hex_pedestal.obj", shader_prog, tex_pedestal);
+    hub_pedestal->pivot_position = hub_center;
+    scene["hub_orb_pedestal"] = hub_pedestal;
+
+    add_box("glass_warning_left",  glm::vec3(-20.0f, 2.4f, -12.5f), glm::vec3(0.18f, 4.0f, 7.0f), tex_red_glass,  false, 1.0f, true, 0.35f);
+    add_box("glass_warning_right", glm::vec3( 20.0f, 2.4f, -12.5f), glm::vec3(0.18f, 4.0f, 7.0f), tex_blue_glass, false, 1.0f, true, 0.35f);
+
+    reactors.push_back({
+        add_box("reactor_01",        glm::vec3(-77.0f, 0.8f,  -3.0f), glm::vec3(1.4f, 2.0f, 1.4f), tex_red_glass,   true, 1.0f, true, 0.55f),
+        add_box("reactor_01_button", glm::vec3(-71.0f, 0.55f, -3.0f), glm::vec3(0.8f, 0.35f, 0.8f), tex_terminal,   true, 0.6f),
+        glm::vec3(1.0f, 0.16f, 0.10f)
+    });
+    reactors.push_back({
+        add_box("reactor_02",        glm::vec3(-77.0f, 0.8f, -29.0f), glm::vec3(1.4f, 2.0f, 1.4f), tex_blue_glass,  true, 1.0f, true, 0.55f),
+        add_box("reactor_02_button", glm::vec3(-71.0f, 0.55f,-29.0f), glm::vec3(0.8f, 0.35f, 0.8f), tex_terminal,   true, 0.6f),
+        glm::vec3(0.15f, 0.45f, 1.0f)
+    });
+    reactors.push_back({
+        add_box("reactor_03_hidden", glm::vec3( 89.0f, 0.8f, -24.0f), glm::vec3(1.4f, 2.0f, 1.4f), tex_green_glass, true, 1.0f, true, 0.55f),
+        add_box("reactor_03_button", glm::vec3( 84.0f, 0.55f,-24.0f), glm::vec3(0.8f, 0.35f, 0.8f), tex_terminal,   true, 0.6f),
+        glm::vec3(0.25f, 1.0f, 0.30f)
+    });
+
+    gate_model = add_box("containment_gate", glm::vec3(0.0f, 1.8f, -39.2f), glm::vec3(7.5f, 3.6f, 0.8f), tex_dark, true, 2.5f);
+
+    Enemy e1{ add_box("enemy_01", glm::vec3( -2.8f, 0.8f,  -6.2f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 3, 0.0f };
+    Enemy e2{ add_box("enemy_02", glm::vec3(-50.0f, 0.8f, -12.5f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 3, 1.7f };
+    Enemy e3{ add_box("enemy_03", glm::vec3( 60.0f, 0.8f, -20.0f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 3, 3.4f };
+    Enemy e4{ add_box("enemy_04", glm::vec3(  0.0f, 0.8f, -28.0f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 4, 5.1f };
+    enemies = { e1, e2, e3, e4 };
+
+    model = add_box("levitating_orb", glm::vec3(0.0f, 3.7f, -12.5f), glm::vec3(3.9f), tex_terminal, false, 1.0f, true, 0.72f);
+    fire_sources = {
+        glm::vec3( -7.0f, 0.1f,  -9.0f),
+        glm::vec3(  7.0f, 0.1f, -16.0f),
+        glm::vec3(-50.0f, 0.1f,  -5.0f),
+        glm::vec3(-50.0f, 0.1f, -29.0f),
+        glm::vec3( 58.0f, 0.1f, -32.0f),
+        glm::vec3( 70.0f, 0.1f,  -5.0f),
+        glm::vec3(  0.0f, 0.1f, -31.0f),
+        glm::vec3( 89.0f, 0.1f, -18.0f)
+    };
+
     auto tex_particle = std::make_shared<Texture>(glm::vec4(1.0f, 0.8f, 0.2f, 1.0f));
     particle_template = std::make_shared<Model>("objects/tetrahedron.obj", shader_prog, tex_particle);
     particle_template->scale = glm::vec3(0.1f);
@@ -467,135 +475,107 @@ void App::init_assets(void) {
     particle_template->material_alpha = 0.8f;
 }
 
+std::shared_ptr<Model> App::add_box(const std::string& name,
+                                    const glm::vec3& position,
+                                    const glm::vec3& scale,
+                                    const std::shared_ptr<Texture>& texture,
+                                    bool collides,
+                                    float radius,
+                                    bool transparent,
+                                    float alpha)
+{
+    auto box = std::make_shared<Model>("objects/cube_triangles.obj", shader_prog, texture);
+    box->pivot_position = position;
+    box->scale = scale;
+    box->collides = collides;
+    box->bounding_radius = radius;
+    box->is_transparent = transparent;
+    box->material_alpha = alpha;
+    scene[name] = box;
+    return box;
+}
+
 
 
 int App::run(void)
 {
-	/*
-	* Typical game loop:
-
-			// INIT: Initial positions and state
-			while (application_should_not_close)
-			{
-				// UPDATE: Update game state
-				// RENDER: Render content
-				// SWAP: Swap back/front buffer
-				// VSYNC: Wait for vertical retrace (e.g. 1/60 of a second)
-				// POLL: Poll events, dispatch
-			}
-	*/
 	try {
-		// Setup shader program and get uniform location
 		shader_prog->use();
 
 		double now = glfwGetTime();
-		// FPS related
 		double fps_last_displayed = now;
 		int fps_counter_frames = 0;
 		double FPS = 0.0;
 
-		// animation related
-		double frame_begin_timepoint = now;
-		double previous_frame_render_time{};
-
-		// Clear color saved to OpenGL state machine
-
 		glClearColor(0, 0, 0, 0);
 
 		glCullFace(GL_BACK);
-		glDisable(GL_CULL_FACE); // Ujisti se, ze spatne natocene steny nam neschovaji model!
+		glDisable(GL_CULL_FACE);
 
-		// disable cursor, so that it can not leave window, and we can process movement
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-		// get first position of mouse cursor
 		glfwGetCursorPos(window, &cursorLastX, &cursorLastY);
 
 		update_projection_matrix();
 		glViewport(0, 0, width, height);
 
-		// Kamera byla hrozně daleko (1000 jednotek), krychle je moc malá. Nastavení na 5 zajistí, že bude vidět!
-		camera.Position = glm::vec3(0, 0, 5.0f);
+		camera.Position = glm::vec3(0.0f, 1.2f, 25.5f);
 		double last_frame_time = glfwGetTime();
 
 		while (!glfwWindowShouldClose(window))
 		{
-			// ImGui prepare render (only if required)
 			if (show_imgui) {
 				ImGui_ImplOpenGL3_NewFrame();
 				ImGui_ImplGlfw_NewFrame();
 				ImGui::NewFrame();
 				ImGui::SetNextWindowPos(ImVec2(10, 10));
-				ImGui::SetNextWindowSize(ImVec2(300, 150));
+				ImGui::SetNextWindowSize(ImVec2(360, 210));
 
 				ImGui::Begin("Info", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 				ImGui::Text("FPS: %.1f", FPS);
+				ImGui::Text("Health: %d", player_health);
+				ImGui::Text("Reactors: %d/3", reactors_active);
+				ImGui::Text("Gate: %s", gate_unlocked ? "UNLOCKED" : "LOCKED");
+				ImGui::Text("Collision: %s (N)", collisions_enabled ? "ON" : "NOCLIP");
+				ImGui::Text("%s", hud_message.c_str());
 				ImGui::Text("V-Sync: %s (hit V to toggle)", is_vsync_on ? "ON" : "OFF");
 				ImGui::Text("Multisample (AA): %s (hit M to toggle)", is_multisample_on ? "ON" : "OFF");
-				ImGui::Text("(hit P for Screenshot)");
+				ImGui::Text("LMB fire | E reactor button | P screenshot");
 				ImGui::Text("(press RMB to release mouse)");
 				ImGui::Text("(hit G to show/hide info)");
 				ImGui::End();
 			}
 
-			//
-			// UPDATE: recompute objects state, players position etc.
-			//
 			now = glfwGetTime();
 			float delta_t = static_cast<float>(now - last_frame_time);
 			last_frame_time = now;
 
-			//########## react to user  ##########
-			camera.ProcessInput(window, delta_t); // process keys etc.
-
-			// ====== Task 2: Apply collision detection (wall sliding + object collision) ======
+			camera.ProcessInput(window, delta_t);
+			update_gameplay(delta_t, now);
 			apply_collisions(delta_t);
 
-			// Animate the rotating cube
 			if (model) {
 				model->eulerAngles.y = now * 50.0f;
 				model->eulerAngles.x = now * 30.0f;
 			}
 
-			// Animate point lights around the cube
-			if (!point_lights.empty()) {
-				float radius = 5.0f;
-				point_lights[0].position = glm::vec3(radius * sin(now), 3.0f, radius * cos(now));
-				if (point_lights.size() > 1) {
-					point_lights[1].position = glm::vec3(radius * sin(now + 2.0f), 3.0f, radius * cos(now + 2.0f));
-				}
-				if (point_lights.size() > 2) {
-					point_lights[2].position = glm::vec3(radius * sin(now + 4.0f), -3.0f, radius * cos(now + 4.0f));
-				}
-			}
-
-			// Update spotlight - attach to camera (headlight)
 			if (!spot_lights.empty()) {
 				spot_lights[0].position = camera.Position;
 				spot_lights[0].direction = camera.Front;
 			}
 
-			// ====== Task 3: Update particles ======
 			update_particles(delta_t);
 
-			//
-			// RENDER: GL drawCalls
-			//
-
-			// Clear OpenGL canvas, both color buffer and Z-buffer
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			//########## create and set View Matrix according to camera settings  ##########
-			shader_prog->use(); // Always activate our shader before drawing, because ImGui switches to its own shader!
+			shader_prog->use();
 			shader_prog->setUniform("uV_m", camera.GetViewMatrix());
 			shader_prog->setUniform("uP_m", projection_matrix);
 
-			// Set up DIRECTIONAL LIGHT uniforms
 			shader_prog->setUniform("dir_light_direction", dir_light.direction);
 			shader_prog->setUniform("dir_light_ambient", dir_light.ambient);
 			shader_prog->setUniform("dir_light_diffuse", dir_light.diffuse);
 			shader_prog->setUniform("dir_light_specular", dir_light.specular);
 
-			// Set up POINT LIGHTS uniforms
 			shader_prog->setUniform("num_point_lights", (int)point_lights.size());
 			for (size_t i = 0; i < point_lights.size() && i < 3; i++) {
 				std::string idx = std::to_string(i);
@@ -605,7 +585,6 @@ int App::run(void)
 				shader_prog->setUniform("point_light_specular[" + idx + "]", point_lights[i].specular);
 			}
 
-			// Set up SPOTLIGHT uniforms
 			if (!spot_lights.empty()) {
 				shader_prog->setUniform("spot_light_position", spot_lights[0].position);
 				shader_prog->setUniform("spot_light_direction", spot_lights[0].direction);
@@ -616,18 +595,10 @@ int App::run(void)
 				shader_prog->setUniform("spot_light_outer_cutoff", spot_lights[0].outer_cutoff);
 			}
 
-			// ====================================================================
-			// Task 1: TRANSPARENCY - Painter's Algorithm
-			// Draw scene in two passes:
-			//   1) Draw all NON-transparent objects (any order, depth test ON)
-			//   2) Sort transparent objects by distance from camera (far to near)
-			//      and draw them with blending ON, depth write OFF
-			// ====================================================================
 			{
 				std::vector<std::shared_ptr<Model>> transparent;
 				transparent.reserve(scene.size());
 
-				// FIRST PASS: draw all non-transparent objects + collect transparent ones
 				for (auto& [name, model_obj] : scene) {
 					if (!model_obj->is_transparent) {
 						model_obj->draw();
@@ -637,43 +608,33 @@ int App::run(void)
 					}
 				}
 
-				// SECOND PASS: sort transparent objects by distance (painter's algorithm)
-				// Sort from FAR to NEAR (descending distance from camera)
 				std::sort(transparent.begin(), transparent.end(),
 					[&](std::shared_ptr<Model> const a, std::shared_ptr<Model> const b) {
 						return glm::distance(camera.Position, a->getPosition()) > glm::distance(camera.Position, b->getPosition());
 					});
 
-				// Enable blending, disable depth writing for transparent objects
 				glEnable(GL_BLEND);
-				glDepthMask(GL_FALSE);  // don't write to depth buffer
+				glDepthMask(GL_FALSE);
 
-				// Draw sorted transparent objects (far to near)
 				for (auto& p : transparent) {
 					p->draw();
 				}
 
-				// Restore GL state for non-transparent objects
-				glDepthMask(GL_TRUE);   // re-enable depth writing
+				glDepthMask(GL_TRUE);
 				glDisable(GL_BLEND);
 			}
 
-			// ====== Task 3: Draw particles (with blending) ======
 			draw_particles();
 
-			// ImGui display
 			if (show_imgui) {
 				ImGui::Render();
 				ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 			}
 
-			// SWAP + VSYNC
 			glfwSwapBuffers(window);
 
-			// POLL events
 			glfwPollEvents();
 
-			// Time/FPS measurement
 			fps_counter_frames++;
 			if (now - fps_last_displayed >= 1.0) {
 				FPS = fps_counter_frames / (now - fps_last_displayed);
@@ -694,17 +655,14 @@ int App::run(void)
 
 void App::destroy(void)
 {
-	// clean up ImGUI
     if (ImGui::GetCurrentContext()) {
 	    ImGui_ImplOpenGL3_Shutdown();
 	    ImGui_ImplGlfw_Shutdown();
 	    ImGui::DestroyContext();
     }
 
-	// clean up OpenCV
 	cv::destroyAllWindows();
 
-	// clean-up GLFW
 	if (window) {
 		glfwDestroyWindow(window);
 		window = nullptr;
@@ -719,9 +677,194 @@ App::~App()
 	std::cout << "Bye...\n";
 }
 
-// ----------------------------------------------------------------------------
-// CALLBACKS IMPLEMENTATION
-// ----------------------------------------------------------------------------
+void App::update_gameplay(float delta_t, double now)
+{
+	camera.MovementSpeed = 5.0f;
+
+	for (size_t i = 0; i < reactors.size() && i < point_lights.size(); ++i) {
+		auto& reactor = reactors[i];
+		const float angle = static_cast<float>(now) * 4.0f + static_cast<float>(i) * glm::two_pi<float>() / 3.0f;
+		const float pulse = reactor.active ? 1.15f + 0.55f * std::sin(static_cast<float>(now) * 8.0f + static_cast<float>(i)) : 0.25f;
+		const glm::vec3 base = reactor.active ? glm::vec3(0.15f, 1.0f, 0.25f) : glm::vec3(0.25f, 0.08f, 0.06f);
+		const glm::vec3 orbit = reactor.active ? glm::vec3(std::cos(angle) * 1.1f, 0.0f, std::sin(angle) * 1.1f) : glm::vec3(0.0f);
+		point_lights[i].position = reactor.model->pivot_position + glm::vec3(0.0f, 1.8f + 0.25f * std::sin(static_cast<float>(now) * 2.5f), 0.0f) + orbit;
+		point_lights[i].diffuse = base * pulse;
+		point_lights[i].ambient = base * 0.08f;
+
+		if (reactor.active) {
+			reactor.model->eulerAngles.y += delta_t * 120.0f;
+			reactor.model->material_alpha = 0.78f + 0.18f * std::sin(static_cast<float>(now) * 10.0f);
+			if (reactor.button) {
+				reactor.button->eulerAngles.y += delta_t * 180.0f;
+				reactor.button->material_alpha = 1.0f;
+			}
+		}
+	}
+
+	for (auto& enemy : enemies) {
+		if (!enemy.alive || !enemy.model) {
+			continue;
+		}
+
+		const float bob = std::sin(static_cast<float>(now) * 2.2f + enemy.bob_offset) * 0.15f;
+		enemy.model->pivot_position.y = 0.8f + bob;
+		enemy.model->eulerAngles.y += delta_t * 40.0f;
+
+		const float distance_to_player = glm::distance(camera.Position, enemy.model->pivot_position);
+		if (distance_to_player < 1.2f) {
+			player_health = std::max(0, player_health - 1);
+			hud_message = "Specimen contact detected.";
+		}
+	}
+
+	if (now - last_fire_particle_time > 0.08) {
+		for (const auto& source : fire_sources) {
+			spawn_particles(source + glm::vec3(0.0f, 0.35f, 0.0f), 2);
+		}
+		last_fire_particle_time = now;
+	}
+
+	if (gate_unlocked) {
+		for (size_t i = 0; i < hub_door_panels.size(); ++i) {
+			auto& panel = hub_door_panels[i];
+			if (!panel) continue;
+
+			const float direction = i == 3 ? -1.0f : (i == 4 ? 1.0f : 0.0f);
+			panel->pivot_position.y = std::min(6.0f, panel->pivot_position.y + delta_t * 1.8f);
+			panel->pivot_position.x += direction * delta_t * 0.8f;
+			panel->material_alpha = std::max(0.18f, panel->material_alpha - delta_t * 0.35f);
+			panel->collides = false;
+		}
+	}
+
+	if (gate_unlocked && gate_model) {
+		gate_model->pivot_position.y = std::min(5.0f, gate_model->pivot_position.y + delta_t * 2.0f);
+		gate_model->collides = false;
+	}
+
+	if (hidden_door_open && hidden_door_wall) {
+		hidden_door_wall->pivot_position.y = std::min(6.0f, hidden_door_wall->pivot_position.y + delta_t * 2.0f);
+		hidden_door_wall->collides = false;
+	}
+}
+
+void App::activate_nearest_reactor()
+{
+	float best_distance = std::numeric_limits<float>::max();
+	Reactor* nearest = nullptr;
+
+	for (auto& reactor : reactors) {
+		if (reactor.active || !reactor.button) {
+			continue;
+		}
+
+		const float distance = glm::distance(camera.Position, reactor.button->pivot_position);
+		if (distance < best_distance) {
+			best_distance = distance;
+			nearest = &reactor;
+		}
+	}
+
+	// Check hidden door button
+	if (!hidden_door_open && hidden_door_btn) {
+		const float dist = glm::distance(camera.Position, hidden_door_btn->pivot_position);
+		if (dist < 2.4f) {
+			hidden_door_open = true;
+			hud_message = "Hidden passage unlocked.";
+			return;
+		}
+	}
+
+	if (!nearest || best_distance > 2.4f) {
+		hud_message = "No reactor button in range.";
+		return;
+	}
+
+	nearest->active = true;
+	nearest->model->material_alpha = 0.85f;
+	nearest->model->collides = false;
+	if (nearest->button) {
+		nearest->button->collides = false;
+		nearest->button->scale = glm::vec3(0.75f, 0.18f, 0.75f);
+	}
+	reactors_active++;
+	spawn_particles(nearest->model->pivot_position + glm::vec3(0.0f, 1.2f, 0.0f), 30);
+
+	if (reactors_active >= static_cast<int>(reactors.size())) {
+		gate_unlocked = true;
+		hud_message = "Containment gate unlocked.";
+	} else {
+		hud_message = "Reactor online.";
+	}
+}
+
+void App::fire_weapon()
+{
+	const double now = glfwGetTime();
+	if (now - last_shot_time < 0.18) {
+		return;
+	}
+	last_shot_time = now;
+
+	const glm::vec3 ray_origin = camera.Position;
+	const glm::vec3 ray_dir = glm::normalize(camera.Front);
+	float best_hit = std::numeric_limits<float>::max();
+	Enemy* hit_enemy = nullptr;
+
+	for (auto& enemy : enemies) {
+		if (!enemy.alive || !enemy.model) {
+			continue;
+		}
+
+		float hit_distance = 0.0f;
+		if (ray_hits_sphere(ray_origin, ray_dir, enemy.model->pivot_position, enemy.model->bounding_radius, hit_distance) && hit_distance < best_hit) {
+			best_hit = hit_distance;
+			hit_enemy = &enemy;
+		}
+	}
+
+	if (!hit_enemy) {
+		hud_message = "Shot missed.";
+		spawn_particles(ray_origin + ray_dir * 2.0f, 4);
+		return;
+	}
+
+	hit_enemy->health--;
+	spawn_particles(hit_enemy->model->pivot_position + glm::vec3(0.0f, 0.6f, 0.0f), 18);
+
+	if (hit_enemy->health <= 0) {
+		hit_enemy->alive = false;
+		hit_enemy->model->collides = false;
+		hit_enemy->model->material_alpha = 0.0f;
+		hit_enemy->model->is_transparent = true;
+		hit_enemy->model->pivot_position.y = -20.0f;
+		hud_message = "Specimen neutralized.";
+	} else {
+		hud_message = "Specimen hit.";
+	}
+}
+
+bool App::ray_hits_sphere(const glm::vec3& ray_origin,
+                          const glm::vec3& ray_dir,
+                          const glm::vec3& sphere_center,
+                          float sphere_radius,
+                          float& hit_distance) const
+{
+	const glm::vec3 oc = ray_origin - sphere_center;
+	const float b = 2.0f * glm::dot(oc, ray_dir);
+	const float c = glm::dot(oc, oc) - sphere_radius * sphere_radius;
+	const float discriminant = b * b - 4.0f * c;
+
+	if (discriminant < 0.0f) {
+		return false;
+	}
+
+	const float root = std::sqrt(discriminant);
+	const float t1 = (-b - root) * 0.5f;
+	const float t2 = (-b + root) * 0.5f;
+	hit_distance = t1 > 0.0f ? t1 : t2;
+	return hit_distance > 0.0f && hit_distance < 35.0f;
+}
 
 void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -729,21 +872,17 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
 	if ((action == GLFW_PRESS) || (action == GLFW_REPEAT)) {
 		switch (key) {
 		case GLFW_KEY_ESCAPE:
-			// Task 1.2: capture/release mouse OR exit
 			{
 				int mode = glfwGetInputMode(window, GLFW_CURSOR);
 				if (mode == GLFW_CURSOR_DISABLED) {
-					// first ESC uvolní kurzor
 					glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 				}
 				else {
-					// druhý ESC (nebo při uvolněném) ukončí aplikaci
 					glfwSetWindowShouldClose(window, GLFW_TRUE);
 				}
 			}
 			break;
 		case GLFW_KEY_C:
-			// Task 3: Background color change
 			this_inst->bg_r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
 			this_inst->bg_g = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
 			this_inst->bg_b = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
@@ -757,23 +896,28 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
 			this_inst->toggle_fullscreen();
 			break;
 		case GLFW_KEY_G:
-			// Toggle ImGUI display
 			this_inst->show_imgui = !this_inst->show_imgui;
 			break;
+		case GLFW_KEY_N:
+			if (action == GLFW_PRESS) {
+				this_inst->collisions_enabled = !this_inst->collisions_enabled;
+				this_inst->hud_message = this_inst->collisions_enabled ? "Collision enabled." : "Noclip enabled.";
+			}
+			break;
+		case GLFW_KEY_E:
+			this_inst->activate_nearest_reactor();
+			break;
 		case GLFW_KEY_M:
-			// Task 1: Toggle Multisampling
 			this_inst->is_multisample_on = !this_inst->is_multisample_on;
 			if (this_inst->is_multisample_on) glEnable(GL_MULTISAMPLE);
 			else glDisable(GL_MULTISAMPLE);
 			std::cout << "Multisampling: " << (this_inst->is_multisample_on ? "ON" : "OFF") << "\n";
 			break;
 		case GLFW_KEY_P:
-			// Task 2: Take Screenshot
 			this_inst->take_screenshot();
 			break;
 
 		case GLFW_KEY_TAB:
-			// Task 1.2: capture/release mouse
 			{
 				int mode = glfwGetInputMode(window, GLFW_CURSOR);
 				if (mode == GLFW_CURSOR_DISABLED)
@@ -789,35 +933,28 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
 }
 
 void App::glfw_fbsize_callback(GLFWwindow* window, int width, int height) {
-    // glViewport(0, 0, width, height);
-		auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
+	auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
     this_inst->width = width;
     this_inst->height = height;
 
-    // set viewport
     glViewport(0, 0, width, height);
-    //now your canvas has [0,0] in bottom left corner, and its size is [width x height]
-
     this_inst->update_projection_matrix();
 }
 
 void App::glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
-if (action == GLFW_PRESS) {
+	if (action == GLFW_PRESS) {
 		switch (button) {
 		case GLFW_MOUSE_BUTTON_LEFT: {
 			int mode = glfwGetInputMode(window, GLFW_CURSOR);
 			if (mode == GLFW_CURSOR_NORMAL) {
-				// we are outside of application, catch the cursor
 				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-			}
-			else {
-				// we are already inside our game: shoot, click, etc.
-				std::cout << "Bang!\n";
+			} else {
+				auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
+				this_inst->fire_weapon();
 			}
 			break;
 		}
 		case GLFW_MOUSE_BUTTON_RIGHT:
-            // release the cursor
 			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 			break;
 		default:
@@ -828,6 +965,10 @@ if (action == GLFW_PRESS) {
 
 void App::cursorPositionCallback(GLFWwindow* window, double xpos, double ypos) {
     auto app = static_cast<App*>(glfwGetWindowUserPointer(window));
+	if (glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED) {
+		app->firstMouse = true;
+		return;
+	}
 
     if (app->firstMouse) {
         app->cursorLastX = xpos;
@@ -843,7 +984,6 @@ void App::cursorPositionCallback(GLFWwindow* window, double xpos, double ypos) {
 void App::glfw_cursor_position_callback(GLFWwindow* window, double xposIn, double yposIn) {
 	auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
 
-	// Only move camera if cursor is disabled (Task 2, point 4)
 	if (glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED)
 		return;
 
@@ -857,7 +997,7 @@ void App::glfw_cursor_position_callback(GLFWwindow* window, double xposIn, doubl
 	}
 
 	float xoffset = xpos - this_inst->lastX;
-	float yoffset = this_inst->lastY - ypos; // reversed since y-coordinates go from bottom to top
+	float yoffset = this_inst->lastY - ypos;
 	this_inst->lastX = xpos;
 	this_inst->lastY = ypos;
 
@@ -868,7 +1008,6 @@ void App::glfw_cursor_position_callback(GLFWwindow* window, double xposIn, doubl
 	this_inst->yaw += xoffset;
 	this_inst->pitch += yoffset;
 
-	// make sure that when pitch is out of bounds, screen doesn't get flipped
 	if (this_inst->pitch > 89.0f)
 		this_inst->pitch = 89.0f;
 	if (this_inst->pitch < -89.0f)
@@ -885,14 +1024,10 @@ void App::glfw_cursor_position_callback(GLFWwindow* window, double xposIn, doubl
 
 
 void App::glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-    // if (yoffset > 0.0) {
-    //     std::cout << "wheel up...\n";
-    // } else if (yoffset < 0.0) {
-    //     std::cout << "wheel down...\n";
-    // }
-		auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
-    this_inst->fov += 10*yoffset; // yoffset is mostly +1 or -1; one degree difference in fov is not visible
-    this_inst->fov = std::clamp(this_inst->fov, 20.0f, 170.0f); // limit FOV to reasonable values...
+	(void)xoffset;
+	auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
+    this_inst->fov -= static_cast<float>(yoffset) * 3.0f;
+    this_inst->fov = std::clamp(this_inst->fov, 35.0f, 90.0f);
 
     this_inst->update_projection_matrix();
 }
@@ -900,26 +1035,25 @@ void App::glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffse
 void App::update_projection_matrix(void)
 {
     if (height < 1)
-        height = 1;   // avoid division by 0
+        height = 1;
 
+    fov = std::clamp(fov, 35.0f, 90.0f);
     float ratio = static_cast<float>(width) / height;
 
     projection_matrix = glm::perspective(
-        glm::radians(fov),   // The vertical Field of View, in radians: the amount of "zoom". Think "camera lens". Usually between 90° (extra wide) and 30° (quite zoomed in)
-        ratio,               // Aspect Ratio. Depends on the size of your window.
-        0.1f,                // Near clipping plane. Keep as big as possible, or you'll get precision issues.
-        20000.0f             // Far clipping plane. Keep as little as possible.
+        glm::radians(fov),
+        ratio,
+        0.1f,
+        20000.0f
     );
 }
 
 void App::toggle_fullscreen() {
     if (!fullscreen_enabled) {
-        // Switch to fullscreen
 		int xpos, ypos, width, height;
 		glfwGetWindowPos(window, &xpos, &ypos);
 		glfwGetWindowSize(window, &width, &height);
 
-		// Find current monitor (the one where the window center is)
 		int monitor_count;
 		GLFWmonitor** monitors = glfwGetMonitors(&monitor_count);
 		GLFWmonitor* current_monitor = glfwGetPrimaryMonitor();
@@ -948,17 +1082,12 @@ void App::toggle_fullscreen() {
         glfwSetWindowMonitor(window, current_monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
         fullscreen_enabled = true;
     } else {
-        // Switch back to windowed
         glfwSetWindowMonitor(window, nullptr, saved_window_x, saved_window_y, saved_window_width, saved_window_height, 0);
         fullscreen_enabled = false;
     }
 }
 
-// ---------------------------------------------------------------------------
-// Screenshot logic
-// ---------------------------------------------------------------------------
 void App::take_screenshot() {
-	// Generate unique filename
 	auto now = std::chrono::system_clock::now();
 	auto time_t_now = std::chrono::system_clock::to_time_t(now);
 	std::stringstream ss;
@@ -966,18 +1095,13 @@ void App::take_screenshot() {
 	   << (is_multisample_on ? "_aa" : "_noaa") << ".png";
 	std::string filename = ss.str();
 
-	// Allocate OpenCV matrix
 	cv::Mat img(height, width, CV_8UC3);
 
-	// Read pixels from GL FRONT buffer or back buffer.
-	// Make sure we are aligned to 1 byte
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	glReadPixels(0, 0, width, height, GL_BGR, GL_UNSIGNED_BYTE, img.data);
 
-	// OpenGL origin is bottom-left, OpenCV is top-left
 	cv::flip(img, img, 0);
 
-	// Write to file
 	if (cv::imwrite(filename, img)) {
 		std::cout << "Screenshot saved to: " << filename << std::endl;
 	} else {
@@ -985,45 +1109,50 @@ void App::take_screenshot() {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Task 2: Collision Detection
-// ---------------------------------------------------------------------------
 void App::apply_collisions(float delta_t) {
-    // --- Collision Type 1: Wall boundary (map limits) with sliding ---
-    // Camera cannot leave the defined map boundaries.
-    // We clamp each axis independently = sliding along walls.
+	(void)delta_t;
+
+	if (!collisions_enabled) {
+		return;
+	}
+
     camera.Position.x = std::clamp(camera.Position.x, MAP_MIN_X, MAP_MAX_X);
     camera.Position.z = std::clamp(camera.Position.z, MAP_MIN_Z, MAP_MAX_Z);
     camera.Position.y = std::clamp(camera.Position.y, MAP_MIN_Y, MAP_MAX_Y);
 
-    // --- Collision Type 2: Sphere-sphere detection with scene objects ---
-    // Camera bounding radius treated as 0.4 units (roughly head + body)
     const float CAMERA_RADIUS = 0.4f;
 
     for (auto& [name, obj] : scene) {
         if (!obj->collides) continue;
-
-        glm::vec3 obj_pos = obj->getPosition();
-        float dist = glm::distance(camera.Position, obj_pos);
-        float min_dist = CAMERA_RADIUS + obj->bounding_radius;
-
-        if (dist < min_dist && dist > 0.0001f) {
-            // Push camera away from the object (sliding: only move along the
-            // direction of collision, preserving tangential movement)
-            glm::vec3 push_dir = glm::normalize(camera.Position - obj_pos);
-            float overlap = min_dist - dist;
-            camera.Position += push_dir * overlap;
-
-            // Spawn particle effect at collision point (Task 3)
-            glm::vec3 contact_point = obj_pos + push_dir * obj->bounding_radius;
-            spawn_particles(contact_point, 8);
-        }
+        resolve_camera_box_collision(obj, CAMERA_RADIUS);
     }
 }
 
-// ---------------------------------------------------------------------------
-// Task 3: Particle System
-// ---------------------------------------------------------------------------
+void App::resolve_camera_box_collision(const std::shared_ptr<Model>& obj, float camera_radius)
+{
+    const glm::vec3 half_extents = obj->scale * 0.5f + glm::vec3(camera_radius, 0.0f, camera_radius);
+    const glm::vec3 delta = camera.Position - obj->pivot_position;
+
+    if (std::abs(delta.x) > half_extents.x ||
+        std::abs(delta.y) > obj->scale.y * 0.5f + 1.0f ||
+        std::abs(delta.z) > half_extents.z) {
+        return;
+    }
+
+    const float overlap_x = half_extents.x - std::abs(delta.x);
+    const float overlap_z = half_extents.z - std::abs(delta.z);
+
+    if (overlap_x < overlap_z) {
+        camera.Position.x += delta.x < 0.0f ? -overlap_x : overlap_x;
+    } else {
+        camera.Position.z += delta.z < 0.0f ? -overlap_z : overlap_z;
+    }
+
+    camera.Position.x = std::clamp(camera.Position.x, MAP_MIN_X, MAP_MAX_X);
+    camera.Position.z = std::clamp(camera.Position.z, MAP_MIN_Z, MAP_MAX_Z);
+    camera.Position.y = MAP_MIN_Y;
+}
+
 void App::spawn_particles(const glm::vec3& position, int count) {
     static std::mt19937 rng{ std::random_device{}() };
     std::uniform_real_distribution<float> angle_dist(0.0f, glm::two_pi<float>());
@@ -1039,7 +1168,6 @@ void App::spawn_particles(const glm::vec3& position, int count) {
         p.lifetime = life_dist(rng);
         p.scale    = scale_dist(rng);
 
-        // Random velocity on hemisphere (upward bias)
         float theta = angle_dist(rng);
         float speed = speed_dist(rng);
         p.velocity  = glm::vec3(
@@ -1058,20 +1186,16 @@ void App::update_particles(float delta_t) {
     for (auto& p : particles) {
         p.age += delta_t;
 
-        // Apply gravity
         p.velocity.y += GRAVITY * delta_t;
 
-        // Move particle
         p.position += p.velocity * delta_t;
 
-        // Simple floor bounce
         if (p.position.y < 0.0f) {
             p.position.y = 0.0f;
             p.velocity *= glm::vec3(ATTENUATION, -ATTENUATION, ATTENUATION);
         }
     }
 
-    // Remove dead particles (lifetime exceeded)
     particles.erase(
         std::remove_if(particles.begin(), particles.end(),
             [](const Particle& p) { return p.age >= p.lifetime; }),
@@ -1082,17 +1206,15 @@ void App::update_particles(float delta_t) {
 void App::draw_particles() {
     if (particles.empty() || !particle_template) return;
 
-    // Enable blending for transparent particles
     glEnable(GL_BLEND);
     glDepthMask(GL_FALSE);
 
     for (auto& p : particles) {
-        // Fade out as particle ages (alpha decreases toward end of life)
         float life_ratio = 1.0f - (p.age / p.lifetime);
 
         particle_template->pivot_position = p.position;
         particle_template->scale          = glm::vec3(p.scale);
-        particle_template->eulerAngles.y  = p.age * 180.0f; // spin
+        particle_template->eulerAngles.y  = p.age * 180.0f;
         particle_template->material_alpha = life_ratio * 0.85f;
 
         particle_template->draw();

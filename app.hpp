@@ -1,18 +1,14 @@
-// app.hpp
-// Public interface for the application class
-// author: JJ
-
 #pragma once
 
 // Standard headers
-#include <vector>   // dynamic arrays used by vertex list
-#include <string>   // std::string for window title
+#include <vector>
+#include <string>
 
 // Third-party headers
-#include "GLFW/glfw3.h"   // GLFW types in callbacks
+#include "GLFW/glfw3.h"
 
 // Project headers
-#include "assets.hpp"     // vertex definition, assets management
+#include "assets.hpp"
 #include "ShaderProgram.hpp"
 #include "Model.hpp"
 #include <memory>
@@ -21,7 +17,7 @@
 
 // Light data structures
 struct DirectionalLight {
-    glm::vec3 direction = glm::vec3(0.0f, -1.0f, -1.0f); // Light direction
+    glm::vec3 direction = glm::vec3(0.0f, -1.0f, -1.0f);
     glm::vec3 ambient = glm::vec3(0.2f, 0.2f, 0.2f);
     glm::vec3 diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
     glm::vec3 specular = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -32,7 +28,7 @@ struct PointLight {
     glm::vec3 ambient = glm::vec3(0.2f, 0.2f, 0.2f);
     glm::vec3 diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
     glm::vec3 specular = glm::vec3(1.0f, 1.0f, 1.0f);
-    float radius = 100.0f; // Attenuation radius
+    float radius = 100.0f;
 };
 
 struct SpotLight {
@@ -41,22 +37,22 @@ struct SpotLight {
     glm::vec3 ambient = glm::vec3(0.2f, 0.2f, 0.2f);
     glm::vec3 diffuse = glm::vec3(0.8f, 0.8f, 0.8f);
     glm::vec3 specular = glm::vec3(1.0f, 1.0f, 1.0f);
-    float cutoff = 12.5f; // Inner cone angle
-    float outer_cutoff = 17.5f; // Outer cone angle
+    float cutoff = 12.5f;
+    float outer_cutoff = 17.5f;
 };
 
 class App {
 
 protected:
-    // projection related variables
+    // projection
     int width{0}, height{0};
     float fov = 60.0f;
     // store projection matrix here, update only on callbacks
     glm::mat4 projection_matrix = glm::identity<glm::mat4>();
-    // all objects of the scene (using shared_ptr for painter's algorithm - Task 1)
+    // all objects of the scene (for paiters algorithm)
     std::unordered_map<std::string, std::shared_ptr<Model>> scene;
 
-    // Mouse control (Task 2, point 4)
+    // Mouse control
     glm::vec3 camera_front{ 0.0f, 0.0f, -1.0f };
     float yaw = -90.0f;
     float pitch = 0.0f;
@@ -72,6 +68,20 @@ protected:
 
 
 private:
+    struct Reactor {
+        std::shared_ptr<Model> model;
+        std::shared_ptr<Model> button;
+        glm::vec3 color;
+        bool active{false};
+    };
+
+    struct Enemy {
+        std::shared_ptr<Model> model;
+        int health{3};
+        float bob_offset{0.0f};
+        bool alive{true};
+    };
+
     bool show_imgui{true};
 
     int window_width = 800;
@@ -94,50 +104,81 @@ private:
 
     std::shared_ptr<ShaderProgram> shader_prog;
     std::shared_ptr<Model> model;
+    std::shared_ptr<Model> gate_model;
+    std::shared_ptr<Model> hidden_door_wall;
+    std::shared_ptr<Model> hidden_door_btn;
+    bool hidden_door_open{false};
+    std::vector<std::shared_ptr<Model>> hub_door_panels;
 
     // Lighting
     DirectionalLight dir_light;
     std::vector<PointLight> point_lights;
     std::vector<SpotLight> spot_lights;
-    int active_light_type = 0; // 0 = directional, 1 = point
-    int active_light_index = 0; // For point and spot lights
+    int active_light_type = 0;
+    int active_light_index = 0;
 
     // Application state
     float bg_r = 0.1f, bg_g = 0.1f, bg_b = 0.15f;
     float tri_r = 0.0f, tri_g = 0.0f, tri_b = 1.0f;
+    int player_health = 100;
+    int reactors_active = 0;
+    bool gate_unlocked = false;
+    bool collisions_enabled = true;
+    double last_shot_time = -10.0;
+    double last_fire_particle_time = 0.0;
+    std::string hud_message = "Containment breach: activate all reactors.";
+    std::vector<Reactor> reactors;
+    std::vector<Enemy> enemies;
+    std::vector<glm::vec3> fire_sources;
 
-    // ====== Task 2: Collision Detection ======
     // Map boundaries
-    static constexpr float MAP_MIN_X = -20.0f;
-    static constexpr float MAP_MAX_X =  20.0f;
-    static constexpr float MAP_MIN_Z = -20.0f;
-    static constexpr float MAP_MAX_Z =  20.0f;
-    static constexpr float MAP_MIN_Y =  0.5f;  // camera min height
-    static constexpr float MAP_MAX_Y = 15.0f;  // camera max height
+    static constexpr float MAP_MIN_X = -92.0f;
+    static constexpr float MAP_MAX_X =  98.0f;
+    static constexpr float MAP_MIN_Z = -55.0f;
+    static constexpr float MAP_MAX_Z =  36.0f;
+    static constexpr float MAP_MIN_Y =  1.2f;
+    static constexpr float MAP_MAX_Y =  1.2f;
 
-    // ====== Task 3: Particle System (optional) ======
+    // Particle System
     struct Particle {
         glm::vec3 position;
         glm::vec3 velocity;
-        float lifetime;   // total lifetime in seconds
-        float age;         // current age in seconds
-        float scale;       // particle size
+        float lifetime;
+        float age;
+        float scale;
     };
     std::vector<Particle> particles;
-    std::shared_ptr<Model> particle_template; // template mesh for particle rendering
+    std::shared_ptr<Model> particle_template;
 
     // initialization helpers
-    void init_imgui(void);          // set up ImGUI context and bindings
-    void init_opencv(void);        // placeholder for OpenCV setup
-    void init_glfw(void);          // initialize GLFW and create window
-    void init_glew(void);          // initialize GLEW and check extensions
-    void init_gl_debug(void);      // enable OpenGL debug callbacks
+    void init_imgui(void);
+    void init_opencv(void);
+    void init_glfw(void);
+    void init_glew(void);
+    void init_gl_debug(void);
+    std::shared_ptr<Model> add_box(const std::string& name,
+                                   const glm::vec3& position,
+                                   const glm::vec3& scale,
+                                   const std::shared_ptr<Texture>& texture,
+                                   bool collides = false,
+                                   float radius = 1.0f,
+                                   bool transparent = false,
+                                   float alpha = 1.0f);
+    void update_gameplay(float delta_t, double now);
+    void activate_nearest_reactor();
+    void fire_weapon();
+    bool ray_hits_sphere(const glm::vec3& ray_origin,
+                         const glm::vec3& ray_dir,
+                         const glm::vec3& sphere_center,
+                         float sphere_radius,
+                         float& hit_distance) const;
+    void resolve_camera_box_collision(const std::shared_ptr<Model>& obj, float camera_radius);
 
     // information display routines
-    void print_opencv_info(void);  // log OpenCV version
-    void print_glfw_info(void);    // log GLFW version
-    void print_glm_info(void);     // log GLM version (if available)
-    void print_gl_info(void);      // log GPU/GL driver info
+    void print_opencv_info(void);
+    void print_glfw_info(void);
+    void print_glm_info(void);
+    void print_gl_info(void);
 
 public:
     App();
@@ -147,10 +188,10 @@ public:
     bool load_config(const std::string& filename);
     int run(void);
 
-    // ====== Task 2: Collision Detection ======
+    // Collision Detection
     void apply_collisions(float delta_t);
 
-    // ====== Task 3: Particle System ======
+    // Particle System Spawning and management
     void spawn_particles(const glm::vec3& position, int count = 15);
     void update_particles(float delta_t);
     void draw_particles();
@@ -168,4 +209,3 @@ public:
     ~App();
 private:
 };
-

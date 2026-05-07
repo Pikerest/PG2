@@ -15,18 +15,15 @@ find_package(OpenGL REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 
 if(WIN32)
-    # Na Windows zkusíme najít OpenCV standardně, jinak použijeme pevnou cestu
     find_package(OpenCV CONFIG QUIET)
     if(NOT OpenCV_FOUND)
         find_package(OpenCV CONFIG REQUIRED PATHS "C:/opencv/opencv/build")
     endif()
 elseif(UNIX)
-    # Na Linuxu použijeme systémové OpenCV
     find_package(OpenCV REQUIRED)
 endif()
 
 set(PROJECT_SOURCES
-    # helloworld.cpp
     main.cpp
     assets.hpp
     app.cpp

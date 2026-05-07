@@ -1,1 +1,1 @@
-# This is project for subject PG2
+# MAtej to cely dojebal jeho commitem a force pushem do mainu :]

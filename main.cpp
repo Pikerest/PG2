@@ -29,7 +29,6 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "app.hpp"
-// define our application
 App app;
 
 int main()

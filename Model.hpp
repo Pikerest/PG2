@@ -20,28 +20,23 @@
 class Model {
 public:
     // origin point of whole model
-    glm::vec3 pivot_position{}; // [0,0,0] of the object
-    glm::vec3 eulerAngles{};    // pitch, yaw, roll
+    glm::vec3 pivot_position{};
+    glm::vec3 eulerAngles{};
     glm::vec3 scale{1.0f};
 
-    // Transparency (Task 1 from Instructions)
-    // - transparency = final fragment alpha < 1.0; this can happen because
-    //   - model has transparent material (material_alpha < 1.0)
-    //   - model has transparent texture
-    // -> when updating material or texture, check alpha and set to TRUE when needed
     bool is_transparent{false};
-    float material_alpha{1.0f}; // 1.0 = fully opaque, 0.0 = fully transparent
+    float material_alpha{1.0f}; // 1.0 = full opaque 0 = transparent
 
-    // Collision detection (Task 2 from Instructions)
-    float bounding_radius{0.5f}; // radius of bounding sphere for collision
-    bool collides{false};        // whether this object participates in collision
+    // Collision detection
+    float bounding_radius{0.5f}; 
+    bool collides{false};
 
-    // Get world position of this model
+    // Get world position of model
     glm::vec3 getPosition() const {
         return pivot_position;
     }
 
-    // mesh related data
+    // mesh  data
     struct mesh_package {
         std::shared_ptr<Mesh> mesh;
         std::shared_ptr<ShaderProgram> shader;
@@ -81,20 +76,20 @@ public:
     }
     
     void draw() {
-        // Calculate base model matrix for the whole model
+        // Calculate base model matrix for the model
         glm::mat4 T = glm::translate(glm::mat4(1.0f), pivot_position);
         glm::mat4 R = glm::yawPitchRoll(glm::radians(eulerAngles.y), glm::radians(eulerAngles.x), glm::radians(eulerAngles.z));
         glm::mat4 S = glm::scale(glm::mat4(1.0f), scale);
         glm::mat4 model_matrix = T * R * S;
 
-        // call draw() on mesh (all meshes)
+        // call draw() on mesh
         for (auto const& mesh_pkg : meshes) {
-            mesh_pkg.shader->use(); // select proper shader
+            mesh_pkg.shader->use(); // select shader
 
-            // Set material alpha for transparency (Task 1)
+            // Set material alpha
             mesh_pkg.shader->setUniform("u_material_alpha", material_alpha);
             
-            // Calculate mesh-local transformation
+            // Calculate mesh for local transformation
             glm::mat4 mT = glm::translate(glm::mat4(1.0f), mesh_pkg.origin);
             glm::mat4 mR = glm::yawPitchRoll(glm::radians(mesh_pkg.eulerAngles.y), glm::radians(mesh_pkg.eulerAngles.x), glm::radians(mesh_pkg.eulerAngles.z));
             glm::mat4 mS = glm::scale(glm::mat4(1.0f), mesh_pkg.scale);

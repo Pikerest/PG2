@@ -17,9 +17,9 @@ public:
     };
 
     Texture() = default;
-    Texture(const cv::Mat & image, Interpolation interpolation = Interpolation::linear_mipmap_linear); // default = best texture filtering
-    Texture(const glm::vec3 & vec); // synthetic single-color RGB texture
-    Texture(const glm::vec4 & vec); // synthetic single-color RGBA texture
+    Texture(const cv::Mat & image, Interpolation interpolation = Interpolation::linear_mipmap_linear);
+    Texture(const glm::vec3 & vec);
+    Texture(const glm::vec4 & vec);
     Texture(const std::filesystem::path & path, Interpolation interpolation = Interpolation::linear_mipmap_linear);
 
     ~Texture();
@@ -33,7 +33,7 @@ public:
 
 private:
     cv::Mat load_image(const std::filesystem::path& path);
-    static GLuint gen_ckboard(void);  // create default texture
+    static GLuint gen_ckboard(void);
     static inline GLuint ckboard_{ 0 }; 
     GLuint name_{ 0 }; 
 };
