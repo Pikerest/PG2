@@ -1,0 +1,107 @@
+Building project using preset: msvc-vcpkg...
+Preset CMake variables:
+
+  CMAKE_TOOLCHAIN_FILE="/home/marcipan/vcpkg/scripts/buildsystems/vcpkg.cmake"
+
+-- Running vcpkg install
+Detecting compiler hash for triplet x64-linux...
+Compiler found: /usr/bin/c++
+The following packages are already installed:
+  * egl-registry:x64-linux@2024-01-25 -- git+https://github.com/microsoft/vcpkg@d883db43133dd223c4ffdbef4193943f6784d43a
+    fmt:x64-linux@11.0.2#1 -- git+https://github.com/microsoft/vcpkg@07a73a7565e5de9eb42e90c16c133bdfdfebbcda
+    glew:x64-linux@2.2.0#4 -- git+https://github.com/microsoft/vcpkg@bf42d73479dcd0f239b71dbed4d0d3af22efb294
+    glfw3:x64-linux@3.4#1 -- git+https://github.com/microsoft/vcpkg@d4bbd4f27c2ca619f57778985120cddcedadb1cc
+    glm:x64-linux@1.0.1#3 -- git+https://github.com/microsoft/vcpkg@f8b09027afe97c717e95bd81d1d4f37c057d1c78
+    imgui[core,glfw-binding,opengl3-binding]:x64-linux@1.91.5 -- git+https://github.com/microsoft/vcpkg@1b5f147821dea003ee9d733b40bfff23e2c40f04
+    nlohmann-json:x64-linux@3.11.3#1 -- git+https://github.com/microsoft/vcpkg@324d32ddba70bc49650d1a067ddcf3d0bfc6c9b6
+  * opengl:x64-linux@2022-12-04#3 -- git+https://github.com/microsoft/vcpkg@c3ae71738f88449ebcd781cef60d9a253fa091d4
+  * opengl-registry:x64-linux@2024-02-10#1 -- git+https://github.com/microsoft/vcpkg@22f7aa58ee78c9f0db904b6251e9265f2be26f9d
+  * vcpkg-cmake:x64-linux@2024-04-23 -- git+https://github.com/microsoft/vcpkg@e74aa1e8f93278a8e71372f1fa08c3df420eb840
+  * vcpkg-cmake-config:x64-linux@2024-05-23 -- git+https://github.com/microsoft/vcpkg@97a63e4bc1a17422ffe4eff71da53b4b561a7841
+The package fmt provides CMake targets:
+
+    find_package(fmt CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE fmt::fmt)
+
+    # Or use the header-only version
+    find_package(fmt CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE fmt::fmt-header-only)
+
+The package glew is compatible with built-in CMake targets:
+
+    find_package(GLEW REQUIRED)
+    target_link_libraries(main PRIVATE GLEW::GLEW)
+
+glfw3 provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(glfw3 CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE glfw)
+
+glfw3 provides pkg-config modules:
+
+  # A multi-platform library for OpenGL, window and input
+  glfw3
+
+The package glm provides CMake targets:
+
+    find_package(glm CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE glm::glm)
+
+    # Or use the header-only version
+    find_package(glm CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE glm::glm-header-only)
+
+imgui provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(imgui CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE imgui::imgui)
+
+The package nlohmann-json provides CMake targets:
+
+    find_package(nlohmann_json CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE nlohmann_json::nlohmann_json)
+
+The package nlohmann-json can be configured to not provide implicit conversions via a custom triplet file:
+
+    set(nlohmann-json_IMPLICIT_CONVERSIONS OFF)
+
+For more information, see the docs here:
+    
+    https://json.nlohmann.me/api/macros/json_use_implicit_conversions/
+
+All requested installations completed successfully in: 254 us
+-- Running vcpkg install - done
+-- Configuring done (0.5s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/marcipan/Dokumenty/pg2/pg2/build
+[1/6] Generating CXX dyndep file CMakeFiles/pg2.dir/CXX.dd
+Running application (forcing NVIDIA if available)...
+Constructed...
+GLFW Version:    3.4.0 X11 GLX Null EGL OSMesa monotonic
+OpenCV Version:  4.11.0
+GLM Version:     (not included)
+OpenGL Vendor:   AMD
+OpenGL Renderer: AMD Radeon 780M Graphics (radeonsi, phoenix, LLVM 20.1.8, DRM 3.64, 6.18.16-100.fc42.x86_64)
+OpenGL Version:  4.6 (Core Profile) Mesa 25.1.9
+GLSL Version:    4.60
+Initialized...
+Loading shaders...
+Shaders loaded, ID: 3
+Loading model triangle.obj...
+Opening OBJ file: triangle.obj
+[GL CALLBACK]: source = SHADER COMPILER, type = OTHER, severity = NOTIFICATION, ID = '1', message = 'Shader Stats: SGPRS: 32 VGPRS: 12 Code Size: 384 LDS: 0 Scratch: 0 Max Waves: 16 Spilled SGPRs: 0 Spilled VGPRs: 0 PrivMem VGPRs: 0 LSOutputs: 0 HSOutputs: 0 HSPatchOuts: 0 ESOutputs: 0 GSOutputs: 0 VSOutputs: 0 PSOutputs: 0 InlineUniforms: 0 DivergentLoop: 0 (VS, W64)'
+Successfully loaded: triangle.obj (3 vertices, 3 indices)
+[GL CALLBACK]: source = SHADER COMPILER, type = OTHER, severity = NOTIFICATION, ID = '1', message = 'Shader Stats: SGPRS: 8 VGPRS: 8 Code Size: 52 LDS: 0 Scratch: 0 Max Waves: 16 Spilled SGPRs: 0 Spilled VGPRs: 0 PrivMem VGPRs: 0 LSOutputs: 0 HSOutputs: 0 HSPatchOuts: 0 ESOutputs: 0 GSOutputs: 0 VSOutputs: 0 PSOutputs: 1 InlineUniforms: 0 DivergentLoop: 0 (PS, W64)'
+Model loaded with 1 meshes.
+Mesh 0 is ready.
+ImGUI version: 1.91.5
+[GL CALLBACK]: source = SHADER COMPILER, type = OTHER, severity = NOTIFICATION, ID = '1', message = 'Shader Stats: SGPRS: 40 VGPRS: 16 Code Size: 640 LDS: 0 Scratch: 0 Max Waves: 16 Spilled SGPRs: 0 Spilled VGPRs: 0 PrivMem VGPRs: 0 LSOutputs: 0 HSOutputs: 0 HSPatchOuts: 0 ESOutputs: 0 GSOutputs: 0 VSOutputs: 2 PSOutputs: 0 InlineUniforms: 0 DivergentLoop: 0 (VS, W64)'
+[GL CALLBACK]: source = SHADER COMPILER, type = OTHER, severity = NOTIFICATION, ID = '1', message = 'Shader Stats: SGPRS: 16 VGPRS: 16 Code Size: 220 LDS: 0 Scratch: 0 Max Waves: 16 Spilled SGPRs: 0 Spilled VGPRs: 0 PrivMem VGPRs: 0 LSOutputs: 0 HSOutputs: 0 HSPatchOuts: 0 ESOutputs: 0 GSOutputs: 0 VSOutputs: 0 PSOutputs: 1 InlineUniforms: 0 DivergentLoop: 0 (PS, W64)'
+[GL CALLBACK]: source = SHADER COMPILER, type = OTHER, severity = NOTIFICATION, ID = '1', message = 'Shader Stats: SGPRS: 128 VGPRS: 8 Code Size: 140 LDS: 0 Scratch: 0 Max Waves: 16 Spilled SGPRs: 0 Spilled VGPRs: 0 PrivMem VGPRs: 0 LSOutputs: 0 HSOutputs: 0 HSPatchOuts: 0 ESOutputs: 0 GSOutputs: 0 VSOutputs: 0 PSOutputs: 0 InlineUniforms: 0 DivergentLoop: 0 (CS, W64)'
+[GL CALLBACK]: source = SHADER COMPILER, type = OTHER, severity = NOTIFICATION, ID = '1', message = 'Shader Stats: SGPRS: 24 VGPRS: 8 Code Size: 104 LDS: 0 Scratch: 0 Max Waves: 16 Spilled SGPRs: 0 Spilled VGPRs: 0 PrivMem VGPRs: 0 LSOutputs: 0 HSOutputs: 0 HSPatchOuts: 0 ESOutputs: 0 GSOutputs: 0 VSOutputs: 0 PSOutputs: 0 InlineUniforms: 0 DivergentLoop: 0 (CS, W64)'
+[GL CALLBACK]: source = SHADER COMPILER, type = OTHER, severity = NOTIFICATION, ID = '1', message = 'Shader Stats: SGPRS: 16 VGPRS: 8 Code Size: 72 LDS: 0 Scratch: 0 Max Waves: 16 Spilled SGPRs: 0 Spilled VGPRs: 0 PrivMem VGPRs: 0 LSOutputs: 0 HSOutputs: 0 HSPatchOuts: 0 ESOutputs: 0 GSOutputs: 0 VSOutputs: 0 PSOutputs: 0 InlineUniforms: 0 DivergentLoop: 0 (CS, W64)'
+[GL CALLBACK]: source = SHADER COMPILER, type = OTHER, severity = NOTIFICATION, ID = '1', message = 'Shader Stats: SGPRS: 48 VGPRS: 32 Code Size: 2132 LDS: 0 Scratch: 0 Max Waves: 16 Spilled SGPRs: 0 Spilled VGPRs: 0 PrivMem VGPRs: 0 LSOutputs: 0 HSOutputs: 0 HSPatchOuts: 0 ESOutputs: 0 GSOutputs: 0 VSOutputs: 2 PSOutputs: 0 InlineUniforms: 0 DivergentLoop: 0 (VS, W64)'
+[FPS]65.2678     [FPS]59.9777     [FPS]59.9413     [FPS]60.0714     [FPS]59.9985     [FPS]59.997     [FPS]60.001     [FPS]59.9992     Application runtime: 9.15022 seconds
+Bye...

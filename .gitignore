@@ -1,0 +1,42 @@
+# Build directories
+/build/
+/build_new/
+/out/
+/cmake-build-*/
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+CMakePresets.json
+# Visual Studio
+.vs/
+*.vcxproj*
+*.sln
+*.user
+*.VC.db
+*.opendb
+
+# Ninja
+.ninja_deps
+.ninja_log
+
+# Binaries
+*.exe
+*.dll
+*.lib
+*.pdb
+
+# vcpkg
+/vcpkg_installed/
+/vcpkg_installed/*
+
+# Logs
+*.log
+
+.vscode/
+imgui.ini
+# Lab materials
+*lab*/
+02lab*

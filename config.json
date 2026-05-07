@@ -1,0 +1,8 @@
+{
+    "window": {
+        "width": 1080,
+        "height": 720,
+        "title": "OpenGL Application"
+    },
+    "vsync": true
+}
