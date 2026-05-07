@@ -9,6 +9,8 @@ uniform vec3 diffuse_material = vec3(1.0, 1.0, 1.0);
 uniform vec3 specular_material = vec3(1.0, 1.0, 1.0);
 uniform float specular_shininess = 32.0;
 uniform vec3 u_emissive = vec3(0.0);
+uniform bool u_debug_collision = false;
+uniform vec4 u_debug_color = vec4(0.05, 0.95, 1.0, 0.72);
 
 // Material transparency (Task 1: Transparency)
 // 1.0 = fully opaque, 0.0 = fully transparent
@@ -23,7 +25,7 @@ uniform vec3 dir_light_diffuse;
 uniform vec3 dir_light_specular;
 
 // Point lights
-#define MAX_POINT_LIGHTS 8
+#define MAX_POINT_LIGHTS 16
 uniform vec3 point_light_ambient[MAX_POINT_LIGHTS];
 uniform vec3 point_light_diffuse[MAX_POINT_LIGHTS];
 uniform vec3 point_light_specular[MAX_POINT_LIGHTS];
@@ -83,6 +85,11 @@ vec3 calculateSpotLight(vec3 N, vec3 V) {
 
 void main()
 {
+    if (u_debug_collision) {
+        FragColor = u_debug_color;
+        return;
+    }
+
     // Normalize vectors
     vec3 N = normalize(fs_in.N);
     vec3 V = normalize(fs_in.V);

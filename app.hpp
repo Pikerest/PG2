@@ -124,6 +124,12 @@ private:
     int reactors_active = 0;
     bool gate_unlocked = false;
     bool collisions_enabled = true;
+    bool show_collision_debug = false;
+    bool player_on_ground = true;
+    float player_vertical_offset = 0.0f;
+    float player_vertical_velocity = 0.0f;
+    float view_bob_phase = 0.0f;
+    float view_bob_offset = 0.0f;
     double last_shot_time = -10.0;
     double last_fire_particle_time = 0.0;
     std::string hud_message = "Containment breach: activate all reactors.";
@@ -137,7 +143,13 @@ private:
     static constexpr float MAP_MIN_Z = -55.0f;
     static constexpr float MAP_MAX_Z =  36.0f;
     static constexpr float MAP_MIN_Y =  1.2f;
-    static constexpr float MAP_MAX_Y =  1.2f;
+    static constexpr float MAP_MAX_Y =  4.4f;
+    static constexpr float PLAYER_WALK_SPEED = 5.0f;
+    static constexpr float PLAYER_SPRINT_SPEED = 8.2f;
+    static constexpr float PLAYER_JUMP_SPEED = 5.4f;
+    static constexpr float PLAYER_GRAVITY = -14.0f;
+    static constexpr float PLAYER_EYE_HEIGHT = 1.2f;
+    static constexpr float DEATH_PIT_Y = -9.0f;
 
     // Particle System
     struct Particle {
@@ -165,6 +177,10 @@ private:
                                    bool transparent = false,
                                    float alpha = 1.0f);
     void update_gameplay(float delta_t, double now);
+    void update_player_motion(float delta_t);
+    void update_pit_state();
+    float current_camera_eye_y() const;
+    void respawn_player(const std::string& message);
     void activate_nearest_reactor();
     void fire_weapon();
     bool ray_hits_sphere(const glm::vec3& ray_origin,
@@ -173,6 +189,10 @@ private:
                          float sphere_radius,
                          float& hit_distance) const;
     void resolve_camera_box_collision(const std::shared_ptr<Model>& obj, float camera_radius);
+    bool try_resolve_camera_top_collision(const std::shared_ptr<Model>& obj, float camera_radius);
+    bool is_over_hub_pit() const;
+    bool is_over_hub_walkway() const;
+    void draw_collision_debug();
 
     // information display routines
     void print_opencv_info(void);

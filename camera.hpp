@@ -69,25 +69,34 @@ public:
     }
 
     // Processes keyboard input
-    void ProcessInput(GLFWwindow* window, GLfloat deltaTime) {
+    void ProcessInput(GLFWwindow* window, GLfloat deltaTime, bool flyMode = false) {
         if (Mode == CameraMode::POV_LOCKED) return;
 
         glm::vec3 direction{0.0f};
+        glm::vec3 moveFront = Front;
+        glm::vec3 moveRight = Right;
+
+        if (!flyMode) {
+            moveFront = glm::normalize(glm::vec3(Front.x, 0.0f, Front.z));
+            moveRight = glm::normalize(glm::cross(moveFront, WorldUp));
+        }
 
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            direction += Front;
+            direction += moveFront;
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            direction -= Front;
+            direction -= moveFront;
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            direction -= Right;
+            direction -= moveRight;
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            direction += Right;
+            direction += moveRight;
 
-        // Free floating movement
-        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-            direction += WorldUp;
-        if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
-            direction -= WorldUp;
+        if (flyMode) {
+            if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+                direction += WorldUp;
+            if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+                direction -= WorldUp;
+        }
+
         if (glm::length(direction) > 0.0f) {
             this->Position += glm::normalize(direction) * MovementSpeed * deltaTime;
         }
