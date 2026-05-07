@@ -15,7 +15,7 @@ uniform vec3 dir_light_diffuse;
 uniform vec3 dir_light_specular;
 
 // Light properties - point lights (array)
-#define MAX_POINT_LIGHTS 8
+#define MAX_POINT_LIGHTS 16
 uniform vec3 point_light_position[MAX_POINT_LIGHTS];
 uniform vec3 point_light_ambient[MAX_POINT_LIGHTS];
 uniform vec3 point_light_diffuse[MAX_POINT_LIGHTS];
