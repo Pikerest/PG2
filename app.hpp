@@ -103,7 +103,10 @@ private:
     GLFWwindow* window = nullptr;
 
     std::shared_ptr<ShaderProgram> shader_prog;
+    std::shared_ptr<ShaderProgram> oit_composite_prog;
     std::shared_ptr<Model> model;
+    std::shared_ptr<Model> inner_orb_model;
+    std::vector<std::shared_ptr<Model>> orb_layer_models;
     std::shared_ptr<Model> gate_model;
     std::shared_ptr<Model> hidden_door_wall;
     std::shared_ptr<Model> hidden_door_btn;
@@ -125,6 +128,7 @@ private:
     bool gate_unlocked = false;
     bool collisions_enabled = true;
     bool show_collision_debug = false;
+    bool show_light_debug = false;
     bool player_on_ground = true;
     float player_vertical_offset = 0.0f;
     float player_vertical_velocity = 0.0f;
@@ -136,6 +140,7 @@ private:
     std::vector<Reactor> reactors;
     std::vector<Enemy> enemies;
     std::vector<glm::vec3> fire_sources;
+    std::shared_ptr<Model> light_debug_marker;
 
     // Map boundaries
     static constexpr float MAP_MIN_X = -92.0f;
@@ -161,6 +166,13 @@ private:
     };
     std::vector<Particle> particles;
     std::shared_ptr<Model> particle_template;
+    GLuint oit_fbo{0};
+    GLuint oit_accum_tex{0};
+    GLuint oit_reveal_tex{0};
+    GLuint oit_depth_tex{0};
+    GLuint fullscreen_vao{0};
+    int oit_width{0};
+    int oit_height{0};
 
     // initialization helpers
     void init_imgui(void);
@@ -168,6 +180,8 @@ private:
     void init_glfw(void);
     void init_glew(void);
     void init_gl_debug(void);
+    void setup_oit_buffers(int buffer_width, int buffer_height);
+    void destroy_oit_buffers();
     std::shared_ptr<Model> add_box(const std::string& name,
                                    const glm::vec3& position,
                                    const glm::vec3& scale,
@@ -182,6 +196,7 @@ private:
     float current_camera_eye_y() const;
     void respawn_player(const std::string& message);
     void activate_nearest_reactor();
+    void toggle_all_reactors();
     void fire_weapon();
     bool ray_hits_sphere(const glm::vec3& ray_origin,
                          const glm::vec3& ray_dir,
@@ -193,6 +208,8 @@ private:
     bool is_over_hub_pit() const;
     bool is_over_hub_walkway() const;
     void draw_collision_debug();
+    void draw_light_debug();
+    void draw_orb_oit(const std::vector<std::shared_ptr<Model>>& oit_models);
 
     // information display routines
     void print_opencv_info(void);

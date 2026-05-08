@@ -27,6 +27,8 @@ public:
     bool is_transparent{false};
     float material_alpha{1.0f}; // 1.0 = full opaque 0 = transparent
     glm::vec3 emissive_color{0.0f};
+    glm::vec2 texture_scale{1.0f};
+    bool swap_texture_axes{false};
 
     // Collision detection
     float bounding_radius{0.5f}; 
@@ -90,6 +92,8 @@ public:
             // Set material alpha
             mesh_pkg.shader->setUniform("u_material_alpha", material_alpha);
             mesh_pkg.shader->setUniform("u_emissive", emissive_color);
+            mesh_pkg.shader->setUniform("u_tex_scale", texture_scale);
+            mesh_pkg.shader->setUniform("u_swap_tex_axes", swap_texture_axes ? 1 : 0);
             
             // Calculate mesh for local transformation
             glm::mat4 mT = glm::translate(glm::mat4(1.0f), mesh_pkg.origin);
