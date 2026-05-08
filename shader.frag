@@ -1,7 +1,8 @@
 #version 460 core
 
 // Outputs colors in RGBA
-out vec4 FragColor;
+layout(location = 0) out vec4 FragColor;
+layout(location = 1) out vec4 Revealage;
 
 // Material properties
 uniform vec3 ambient_material = vec3(1.0, 1.0, 1.0);
@@ -11,6 +12,7 @@ uniform float specular_shininess = 32.0;
 uniform vec3 u_emissive = vec3(0.0);
 uniform bool u_debug_collision = false;
 uniform vec4 u_debug_color = vec4(0.05, 0.95, 1.0, 0.72);
+uniform bool u_oit_pass = false;
 
 // Material transparency (Task 1: Transparency)
 // 1.0 = fully opaque, 0.0 = fully transparent
@@ -119,5 +121,16 @@ void main()
     vec3 lighting = dirLight + pointLight + spotLight;
     
     // Apply to texture, including material alpha for transparency (Task 1)
-    FragColor = vec4(lighting * texColor.rgb + u_emissive, texColor.a * u_material_alpha);
+    vec4 shaded = vec4(lighting * texColor.rgb + u_emissive, texColor.a * u_material_alpha);
+
+    if (u_oit_pass) {
+        float alpha = clamp(shaded.a, 0.0, 1.0);
+        float weight = clamp(pow(min(1.0, alpha * 8.0) + 0.01, 3.0) * 1.0e3, 1.0e-2, 3.0e3);
+        FragColor = vec4(shaded.rgb * alpha, alpha) * weight;
+        Revealage = vec4(alpha);
+        return;
+    }
+
+    FragColor = shaded;
+    Revealage = vec4(1.0);
 }

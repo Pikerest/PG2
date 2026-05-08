@@ -248,32 +248,34 @@ void App::print_glm_info()
 
 void App::init_assets(void) {
     shader_prog = ShaderProgram::from_files("shader.vert", "shader.frag");
+    oit_composite_prog = ShaderProgram::from_files("oit_composite.vert", "oit_composite.frag");
 
     shader_prog->use();
     shader_prog->setUniform("uTexture", 0);
+    shader_prog->setUniform("u_oit_pass", 0);
+
+    oit_composite_prog->use();
+    oit_composite_prog->setUniform("uAccumTexture", 0);
+    oit_composite_prog->setUniform("uRevealTexture", 1);
+    oit_composite_prog->setUniform("uSampleCount", 4);
+
+    if (fullscreen_vao == 0) {
+        glCreateVertexArrays(1, &fullscreen_vao);
+    }
+    setup_oit_buffers(width, height);
 
     dir_light.direction = glm::normalize(glm::vec3(-0.4f, -1.0f, -0.2f));
-    dir_light.ambient = glm::vec3(0.16f, 0.18f, 0.19f);
-    dir_light.diffuse = glm::vec3(0.34f, 0.38f, 0.42f);
-    dir_light.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+    dir_light.ambient = glm::vec3(0.06f, 0.075f, 0.08f);
+    dir_light.diffuse = glm::vec3(0.12f, 0.14f, 0.16f);
+    dir_light.specular = glm::vec3(0.18f, 0.20f, 0.22f);
 
     point_lights.clear();
-    point_lights.push_back({ glm::vec3(-9.0f, 3.0f, -4.0f), glm::vec3(0.05f), glm::vec3(1.0f, 0.25f, 0.15f), glm::vec3(1.0f), 42.0f });
-    point_lights.push_back({ glm::vec3(9.0f, 3.0f, -4.0f), glm::vec3(0.04f), glm::vec3(0.20f, 0.75f, 1.0f), glm::vec3(1.0f), 42.0f });
-    point_lights.push_back({ glm::vec3(0.0f, 4.0f, -15.0f), glm::vec3(0.04f), glm::vec3(0.35f, 1.0f, 0.45f), glm::vec3(1.0f), 42.0f });
-    point_lights.push_back({ glm::vec3(  0.0f, 9.0f, -12.5f), glm::vec3(0.070f, 0.130f, 0.115f), glm::vec3(0.75f, 1.95f, 1.45f), glm::vec3(0.45f, 1.10f, 0.90f), 72.0f });
-    point_lights.push_back({ glm::vec3(  0.0f, 3.3f, -12.5f), glm::vec3(0.035f, 0.075f, 0.065f), glm::vec3(0.38f, 0.95f, 0.78f), glm::vec3(0.25f, 0.70f, 0.58f), 42.0f });
-    point_lights.push_back({ glm::vec3(-14.0f, 5.8f, -12.5f), glm::vec3(0.035f, 0.075f, 0.065f), glm::vec3(0.42f, 1.05f, 0.82f), glm::vec3(0.25f, 0.78f, 0.62f), 48.0f });
-    point_lights.push_back({ glm::vec3( 14.0f, 5.8f, -12.5f), glm::vec3(0.035f, 0.075f, 0.065f), glm::vec3(0.42f, 1.05f, 0.82f), glm::vec3(0.25f, 0.78f, 0.62f), 48.0f });
-    point_lights.push_back({ glm::vec3(  0.0f, 5.8f,   5.0f), glm::vec3(0.030f, 0.070f, 0.060f), glm::vec3(0.36f, 0.96f, 0.82f), glm::vec3(0.24f, 0.70f, 0.62f), 44.0f });
-    point_lights.push_back({ glm::vec3(  0.0f, 5.8f, -29.5f), glm::vec3(0.030f, 0.070f, 0.060f), glm::vec3(0.36f, 0.96f, 0.82f), glm::vec3(0.24f, 0.70f, 0.62f), 44.0f });
-    point_lights.push_back({ glm::vec3(-11.5f, 8.0f, -24.0f), glm::vec3(0.022f, 0.052f, 0.045f), glm::vec3(0.28f, 0.75f, 0.62f), glm::vec3(0.18f, 0.55f, 0.48f), 36.0f });
-    point_lights.push_back({ glm::vec3( 11.5f, 8.0f, -24.0f), glm::vec3(0.022f, 0.052f, 0.045f), glm::vec3(0.28f, 0.75f, 0.62f), glm::vec3(0.18f, 0.55f, 0.48f), 36.0f });
-    point_lights.push_back({ glm::vec3(-11.5f, 8.0f,  -1.0f), glm::vec3(0.022f, 0.052f, 0.045f), glm::vec3(0.28f, 0.75f, 0.62f), glm::vec3(0.18f, 0.55f, 0.48f), 36.0f });
-    point_lights.push_back({ glm::vec3( 11.5f, 8.0f,  -1.0f), glm::vec3(0.022f, 0.052f, 0.045f), glm::vec3(0.28f, 0.75f, 0.62f), glm::vec3(0.18f, 0.55f, 0.48f), 36.0f });
-    point_lights.push_back({ glm::vec3(  0.0f, 2.8f,  10.5f), glm::vec3(0.025f, 0.065f, 0.055f), glm::vec3(0.34f, 0.86f, 0.74f), glm::vec3(0.20f, 0.58f, 0.52f), 30.0f });
-    point_lights.push_back({ glm::vec3(-25.0f, 2.8f, -12.5f), glm::vec3(0.025f, 0.065f, 0.055f), glm::vec3(0.34f, 0.86f, 0.74f), glm::vec3(0.20f, 0.58f, 0.52f), 30.0f });
-    point_lights.push_back({ glm::vec3( 25.0f, 2.8f, -12.5f), glm::vec3(0.025f, 0.065f, 0.055f), glm::vec3(0.34f, 0.86f, 0.74f), glm::vec3(0.20f, 0.58f, 0.52f), 30.0f });
+    point_lights.push_back({ glm::vec3(  0.0f, 14.6f, -12.5f), glm::vec3(0.040f, 0.052f, 0.050f), glm::vec3(1.05f, 1.45f, 1.30f), glm::vec3(0.14f, 0.22f, 0.20f), 52.0f });
+    point_lights.push_back({ glm::vec3(-21.5f, 4.8f, -12.5f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
+    point_lights.push_back({ glm::vec3( 21.5f, 4.8f, -12.5f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
+    point_lights.push_back({ glm::vec3(  0.0f, 4.8f,   9.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
+    point_lights.push_back({ glm::vec3(  0.0f, 4.8f, -34.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
+    point_lights.push_back({ glm::vec3(  0.0f, 3.7f, -12.5f), glm::vec3(0.016f, 0.032f, 0.030f), glm::vec3(0.28f, 0.70f, 0.62f), glm::vec3(0.04f, 0.10f, 0.09f), 22.0f });
 
     spot_lights.clear();
 
@@ -283,13 +285,24 @@ void App::init_assets(void) {
     auto tex_dark = std::make_shared<Texture>(glm::vec3(0.08f, 0.09f, 0.10f));
     auto tex_terminal = std::make_shared<Texture>(glm::vec3(0.12f, 0.45f, 0.55f));
     auto tex_enemy = std::make_shared<Texture>(glm::vec3(0.55f, 0.18f, 0.16f));
-    auto tex_catwalk = std::make_shared<Texture>(glm::vec3(0.55f, 0.05f, 0.04f));
-    auto tex_rail = std::make_shared<Texture>(glm::vec3(0.30f, 0.16f, 0.12f));
+    auto tex_catwalk = std::make_shared<Texture>("textures/catwalk_diamond_plate.png");
+    auto tex_octagon_plate = std::make_shared<Texture>("textures/octagon_teardrop_plate.png");
+    auto tex_rail = std::make_shared<Texture>(glm::vec3(0.68f, 0.82f, 0.74f));
+    auto tex_lamp = std::make_shared<Texture>(glm::vec3(0.82f, 1.0f, 0.94f));
+    auto tex_inner_orb = std::make_shared<Texture>(glm::vec4(1.0f, 0.46f, 0.08f, 1.0f));
+    auto tex_orb_yellow = std::make_shared<Texture>(glm::vec4(1.0f, 0.82f, 0.10f, 1.0f));
+    auto tex_orb_magenta = std::make_shared<Texture>(glm::vec4(1.0f, 0.14f, 0.72f, 1.0f));
+    auto tex_orb_blue = std::make_shared<Texture>(glm::vec4(0.22f, 0.48f, 1.0f, 1.0f));
+    auto tex_orb_green = std::make_shared<Texture>(glm::vec4(0.28f, 1.0f, 0.46f, 1.0f));
     auto tex_red_glass = std::make_shared<Texture>(glm::vec4(1.0f, 0.12f, 0.08f, 1.0f));
     auto tex_blue_glass = std::make_shared<Texture>(glm::vec4(0.15f, 0.45f, 1.0f, 1.0f));
     auto tex_green_glass = std::make_shared<Texture>(glm::vec4(0.25f, 1.0f, 0.25f, 1.0f));
+    light_debug_marker = std::make_shared<Model>("objects/cube_triangles.obj", shader_prog, tex_lamp);
+    light_debug_marker->material_alpha = 0.72f;
+    light_debug_marker->is_transparent = true;
 
     scene.clear();
+    orb_layer_models.clear();
     reactors.clear();
     enemies.clear();
     fire_sources.clear();
@@ -297,21 +310,21 @@ void App::init_assets(void) {
     reactors_active = 0;
     gate_unlocked = false;
 
-    add_box("spawn_floor", glm::vec3(0.0f, -0.05f, 25.0f), glm::vec3(8.0f, 0.1f, 12.0f), tex_floor);
-    add_box("entry_corridor_floor", glm::vec3(0.0f, -0.05f, 12.0f), glm::vec3(7.2f, 0.1f, 25.0f), tex_floor);
+    add_box("spawn_floor", glm::vec3(0.0f, -0.05f, 25.0f), glm::vec3(8.0f, 0.1f, 12.0f), tex_floor, true);
+    add_box("entry_corridor_floor", glm::vec3(0.0f, -0.05f, 12.0f), glm::vec3(7.2f, 0.1f, 25.0f), tex_floor, true);
     add_box("hub_pit_floor", glm::vec3(0.0f, -14.5f, -12.5f), glm::vec3(34.0f, 0.4f, 34.0f), tex_dark);
     // Left wing floors — wider corridor + T-junction + two reactor rooms
-    add_box("left_main_floor",      glm::vec3(-33.0f, -0.05f, -12.5f), glm::vec3(22.0f, 0.1f, 10.0f), tex_floor);
-    add_box("left_junction_floor",  glm::vec3(-50.5f, -0.05f, -18.0f), glm::vec3(13.0f, 0.1f, 32.0f), tex_floor);
-    add_box("r1_corridor_floor",    glm::vec3(-62.0f, -0.05f,  -5.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_floor);
-    add_box("reactor1_floor",       glm::vec3(-77.0f, -0.05f,  -3.0f), glm::vec3(20.0f, 0.1f, 22.0f), tex_floor);
-    add_box("r2_corridor_floor",    glm::vec3(-62.0f, -0.05f, -29.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_floor);
-    add_box("reactor2_floor",       glm::vec3(-77.0f, -0.05f, -29.0f), glm::vec3(20.0f, 0.1f, 18.0f), tex_floor);
+    add_box("left_main_floor",      glm::vec3(-33.0f, -0.05f, -12.5f), glm::vec3(22.0f, 0.1f, 10.0f), tex_floor, true);
+    add_box("left_junction_floor",  glm::vec3(-50.5f, -0.05f, -18.0f), glm::vec3(13.0f, 0.1f, 32.0f), tex_floor, true);
+    add_box("r1_corridor_floor",    glm::vec3(-62.0f, -0.05f,  -5.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_floor, true);
+    add_box("reactor1_floor",       glm::vec3(-77.0f, -0.05f,  -3.0f), glm::vec3(20.0f, 0.1f, 22.0f), tex_floor, true);
+    add_box("r2_corridor_floor",    glm::vec3(-62.0f, -0.05f, -29.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_floor, true);
+    add_box("reactor2_floor",       glm::vec3(-77.0f, -0.05f, -29.0f), glm::vec3(20.0f, 0.1f, 18.0f), tex_floor, true);
     // Right wing floors
-    add_box("east_corridor_floor",  glm::vec3( 33.5f, -0.05f, -12.5f), glm::vec3(23.0f, 0.1f, 10.0f), tex_floor);
-    add_box("warehouse_floor",      glm::vec3( 63.0f, -0.05f, -17.0f), glm::vec3(36.0f, 0.1f, 46.0f), tex_floor);
-    add_box("reactor3_floor",       glm::vec3( 89.0f, -0.05f, -18.0f), glm::vec3(14.0f, 0.1f, 22.0f), tex_floor);
-    add_box("escape_corridor_floor", glm::vec3(0.0f, -0.05f, -37.0f), glm::vec3(8.5f, 0.1f, 18.0f), tex_floor);
+    add_box("east_corridor_floor",  glm::vec3( 33.5f, -0.05f, -12.5f), glm::vec3(23.0f, 0.1f, 10.0f), tex_floor, true);
+    add_box("warehouse_floor",      glm::vec3( 63.0f, -0.05f, -17.0f), glm::vec3(36.0f, 0.1f, 46.0f), tex_floor, true);
+    add_box("reactor3_floor",       glm::vec3( 89.0f, -0.05f, -18.0f), glm::vec3(14.0f, 0.1f, 22.0f), tex_floor, true);
+    add_box("escape_corridor_floor", glm::vec3(0.0f, -0.05f, -37.0f), glm::vec3(8.5f, 0.1f, 18.0f), tex_floor, true);
 
     add_box("spawn_room_back_wall", glm::vec3(0.0f, 2.0f, 31.2f), glm::vec3(7.8f, 4.0f, 0.7f), tex_dark, true, 2.0f);
     add_box("spawn_room_left_wall", glm::vec3(-4.0f, 2.0f, 25.0f), glm::vec3(0.8f, 4.0f, 12.0f), tex_wall, true, 1.5f);
@@ -321,13 +334,13 @@ void App::init_assets(void) {
     const glm::vec3 hub_center(0.0f, 0.0f, -12.5f);
 
     // Solid hexagonal panel dome; portal panels are replaced by tunnel prisms.
-    auto tex_hub_shell = std::make_shared<Texture>(glm::vec3(0.06f, 0.30f, 0.22f));
+    auto tex_hub_shell = std::make_shared<Texture>(glm::vec3(0.78f, 0.86f, 0.82f));
     auto hub_shell = std::make_shared<Model>("objects/hub_shell_portals.obj", shader_prog, tex_hub_shell);
     hub_shell->pivot_position = hub_center;
     hub_shell->scale = glm::vec3(1.45f);
     hub_shell->is_transparent = false;
     hub_shell->material_alpha = 1.0f;
-    hub_shell->emissive_color = glm::vec3(0.015f, 0.055f, 0.042f);
+    hub_shell->emissive_color = glm::vec3(0.018f, 0.020f, 0.018f);
     scene["hub_hex_shell"] = hub_shell;
 
     auto hub_shell_edges = std::make_shared<Model>("objects/hub_shell_edges.obj", shader_prog, tex_dark);
@@ -341,7 +354,7 @@ void App::init_assets(void) {
     constexpr float hub_portal_hex_radius = 2.35f * hub_dome_model_scale;
     constexpr float hub_tunnel_visual_radius = hub_portal_hex_radius * 0.80f;
 
-    auto tex_tunnel_shell = std::make_shared<Texture>(glm::vec3(0.08f, 0.48f, 0.34f));
+    auto tex_tunnel_shell = std::make_shared<Texture>(glm::vec3(0.78f, 0.86f, 0.82f));
     auto add_hex_tunnel_shell = [&](const std::string& name, glm::vec3 position, float length, float yaw_degrees) {
         auto tunnel = std::make_shared<Model>("objects/hex_tunnel_shell.obj", shader_prog, tex_tunnel_shell);
         tunnel->pivot_position = position;
@@ -363,6 +376,52 @@ void App::init_assets(void) {
     add_hex_tunnel_shell("hub_tunnel_shell_south", glm::vec3(0.0f, hub_portal_panel_y, hub_center.z + hub_portal_panel_radius + south_tunnel_len * 0.5f), south_tunnel_len, 90.0f);
     add_hex_tunnel_shell("hub_tunnel_shell_north", glm::vec3(0.0f, hub_portal_panel_y, hub_center.z - hub_portal_panel_radius - north_tunnel_len * 0.5f), north_tunnel_len, 90.0f);
 
+    auto add_lamp = [&](const std::string& name, const glm::vec3& position, const glm::vec3& size, float yaw_degrees = 0.0f) {
+        auto lamp = add_box(name, position, size, tex_lamp, false);
+        lamp->eulerAngles.y = yaw_degrees;
+        lamp->emissive_color = glm::vec3(0.20f, 0.45f, 0.38f);
+        return lamp;
+    };
+
+    auto add_hex_lamp = [&](const std::string& name, const glm::vec3& position, float radius) {
+        constexpr float apothem_factor = 0.8660254f;
+        const float apothem = radius * apothem_factor;
+        std::vector<Vertex> vertices;
+        vertices.reserve(7);
+        vertices.push_back({ glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec2(0.5f, 0.5f) });
+        for (int i = 0; i < 6; ++i) {
+            const float a = glm::half_pi<float>() + static_cast<float>(i) * glm::two_pi<float>() / 6.0f;
+            const glm::vec2 p(std::cos(a) * radius, std::sin(a) * radius);
+            vertices.push_back({
+                glm::vec3(p.x, 0.0f, p.y),
+                glm::vec3(0.0f, -1.0f, 0.0f),
+                glm::vec2(p.x / (apothem * 2.0f) + 0.5f, p.y / (radius * 2.0f) + 0.5f)
+            });
+        }
+
+        std::vector<GLuint> indices;
+        for (GLuint i = 1; i <= 6; ++i) {
+            indices.push_back(0);
+            indices.push_back(i == 6 ? 1 : i + 1);
+            indices.push_back(i);
+        }
+
+        auto lamp = std::make_shared<Model>();
+        auto mesh = std::make_shared<Mesh>(vertices, indices, GL_TRIANGLES);
+        mesh->setTexture(tex_lamp);
+        lamp->addMesh(mesh, shader_prog, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f), tex_lamp);
+        lamp->pivot_position = position;
+        lamp->emissive_color = glm::vec3(0.36f, 0.78f, 0.66f);
+        scene[name] = lamp;
+        return lamp;
+    };
+
+    add_hex_lamp("hub_lamp_top_hex", glm::vec3(0.0f, 14.15f, hub_center.z), 2.35f);
+    add_lamp("hub_lamp_west_portal", glm::vec3(-hub_portal_panel_radius + 0.4f, 4.9f, hub_center.z), glm::vec3(0.10f, 0.18f, 4.0f));
+    add_lamp("hub_lamp_east_portal", glm::vec3( hub_portal_panel_radius - 0.4f, 4.9f, hub_center.z), glm::vec3(0.10f, 0.18f, 4.0f));
+    add_lamp("hub_lamp_south_portal", glm::vec3(0.0f, 4.9f, hub_center.z + hub_portal_panel_radius - 0.4f), glm::vec3(4.0f, 0.18f, 0.10f));
+    add_lamp("hub_lamp_north_portal", glm::vec3(0.0f, 4.9f, hub_center.z - hub_portal_panel_radius + 0.4f), glm::vec3(4.0f, 0.18f, 0.10f));
+
     auto tex_collision_clear = std::make_shared<Texture>(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
     constexpr float tunnel_walk_half_width = 2.56f;
@@ -370,12 +429,16 @@ void App::init_assets(void) {
     const float tunnel_collision_height = hub_tunnel_visual_radius * 1.70f;
     const float tunnel_collision_y = hub_portal_panel_y;
     auto add_tunnel_collision_x = [&](const std::string& name, glm::vec3 center, float length) {
+        add_box(name + "_floor", glm::vec3(center.x, -0.05f, center.z),
+                glm::vec3(length, 0.10f, tunnel_walk_half_width * 2.0f), tex_collision_clear, true, 1.0f, true, 0.0f);
         add_box(name + "_north_wall", glm::vec3(center.x, tunnel_collision_y, center.z - tunnel_walk_half_width),
                 glm::vec3(length, tunnel_collision_height, tunnel_collision_thickness), tex_collision_clear, true, 1.0f, true, 0.0f);
         add_box(name + "_south_wall", glm::vec3(center.x, tunnel_collision_y, center.z + tunnel_walk_half_width),
                 glm::vec3(length, tunnel_collision_height, tunnel_collision_thickness), tex_collision_clear, true, 1.0f, true, 0.0f);
     };
     auto add_tunnel_collision_z = [&](const std::string& name, glm::vec3 center, float length) {
+        add_box(name + "_floor", glm::vec3(center.x, -0.05f, center.z),
+                glm::vec3(tunnel_walk_half_width * 2.0f, 0.10f, length), tex_collision_clear, true, 1.0f, true, 0.0f);
         add_box(name + "_west_wall", glm::vec3(center.x - tunnel_walk_half_width, tunnel_collision_y, center.z),
                 glm::vec3(tunnel_collision_thickness, tunnel_collision_height, length), tex_collision_clear, true, 1.0f, true, 0.0f);
         add_box(name + "_east_wall", glm::vec3(center.x + tunnel_walk_half_width, tunnel_collision_y, center.z),
@@ -404,24 +467,143 @@ void App::init_assets(void) {
     add_box("hub_collision_north_west", glm::vec3(-hub_wall_segment_offset, hub_shell_y, hub_center.z - hub_shell_radius), glm::vec3(hub_wall_segment_len, hub_shell_height, hub_shell_thickness), tex_collision_clear, true, 1.0f, true, 0.0f);
     add_box("hub_collision_north_east", glm::vec3( hub_wall_segment_offset, hub_shell_y, hub_center.z - hub_shell_radius), glm::vec3(hub_wall_segment_len, hub_shell_height, hub_shell_thickness), tex_collision_clear, true, 1.0f, true, 0.0f);
 
-    // Hub catwalks: center octagon gives flat entrances in all four directions.
+    // Hub catwalks connect to the restored center octagon and orb pedestal.
     // The diagonal rail pieces are visual because collision is axis-aligned.
     constexpr float hub_oct_radius = 6.5f;
     constexpr float hub_oct_apothem = hub_oct_radius * 0.9238795f;
     constexpr float hub_oct_corner = hub_oct_radius * 0.3826834f;
 
-    auto hub_platform = std::make_shared<Model>("objects/oct_platform.obj", shader_prog, tex_catwalk);
+    auto hub_platform = std::make_shared<Model>("objects/oct_platform.obj", shader_prog, tex_floor);
     hub_platform->pivot_position = glm::vec3(hub_center.x, 0.16f, hub_center.z);
     hub_platform->scale = glm::vec3(hub_oct_radius, 0.32f, hub_oct_radius);
+    hub_platform->emissive_color = glm::vec3(0.006f, 0.014f, 0.012f);
     scene["hub_platform_center_oct"] = hub_platform;
 
-    add_box("hub_catwalk_west",  glm::vec3(-14.5f, 0.12f, hub_center.z), glm::vec3(17.0f, 0.24f, 2.0f), tex_catwalk);
-    add_box("hub_catwalk_east",  glm::vec3( 14.5f, 0.12f, hub_center.z), glm::vec3(17.0f, 0.24f, 2.0f), tex_catwalk);
-    add_box("hub_catwalk_south", glm::vec3(  0.0f, 0.12f, 1.25f), glm::vec3(2.0f, 0.24f, 15.5f), tex_catwalk);
-    add_box("hub_catwalk_north", glm::vec3(  0.0f, 0.12f, -24.75f), glm::vec3(2.0f, 0.24f, 12.5f), tex_catwalk);
+    auto add_oct_catwalk_top = [&](const std::string& name, const glm::vec3& center, float radius, float y) {
+        constexpr float apothem_factor = 0.9238795f;
+        constexpr float corner_factor = 0.3826834f;
+        const float apothem = radius * apothem_factor;
+        const float corner = radius * corner_factor;
+        const float repeat = 4.2f;
 
-    constexpr float rail_top_y = 0.82f;
-    constexpr float rail_mid_y = 0.58f;
+        std::vector<Vertex> vertices;
+        vertices.reserve(9);
+        vertices.push_back({ glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(repeat * 0.5f, repeat * 0.5f) });
+
+        const std::array<glm::vec2, 8> outline = {
+            glm::vec2( apothem, -corner),
+            glm::vec2( apothem,  corner),
+            glm::vec2( corner,   apothem),
+            glm::vec2(-corner,   apothem),
+            glm::vec2(-apothem,  corner),
+            glm::vec2(-apothem, -corner),
+            glm::vec2(-corner,  -apothem),
+            glm::vec2( corner,  -apothem)
+        };
+
+        for (const glm::vec2& p : outline) {
+            vertices.push_back({
+                glm::vec3(p.x, 0.0f, p.y),
+                glm::vec3(0.0f, 1.0f, 0.0f),
+                glm::vec2((p.x / (apothem * 2.0f) + 0.5f) * repeat,
+                          (p.y / (apothem * 2.0f) + 0.5f) * repeat)
+            });
+        }
+
+        std::vector<GLuint> indices;
+        indices.reserve(24);
+        for (GLuint i = 1; i <= 8; ++i) {
+            indices.push_back(0);
+            indices.push_back(i);
+            indices.push_back(i == 8 ? 1 : i + 1);
+        }
+
+        auto top = std::make_shared<Model>();
+        auto mesh = std::make_shared<Mesh>(vertices, indices, GL_TRIANGLES);
+        mesh->setTexture(tex_octagon_plate);
+        top->addMesh(mesh, shader_prog, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f), tex_octagon_plate);
+        top->pivot_position = glm::vec3(center.x, y, center.z);
+        top->emissive_color = glm::vec3(0.012f, 0.020f, 0.018f);
+        scene[name] = top;
+        return top;
+    };
+
+    add_oct_catwalk_top("hub_platform_center_oct_top", hub_center, hub_oct_radius, 0.326f);
+
+    auto add_oct_floor_collision = [&](const std::string& name, glm::vec3 center, float radius, float height) {
+        const float apothem = radius * 0.9238795f;
+        const float corner = radius * 0.3826834f;
+        constexpr int strips = 8;
+        const float strip_depth = (apothem * 2.0f) / static_cast<float>(strips);
+
+        for (int i = 0; i < strips; ++i) {
+            const float z_min = -apothem + strip_depth * static_cast<float>(i);
+            const float z_max = z_min + strip_depth;
+            const float farthest_z = std::max(std::abs(z_min), std::abs(z_max));
+            const float half_width = farthest_z <= corner ? apothem : apothem + corner - farthest_z;
+            if (half_width <= 0.05f) {
+                continue;
+            }
+
+            add_box(name + "_strip_" + std::to_string(i),
+                    glm::vec3(center.x, center.y, center.z + (z_min + z_max) * 0.5f),
+                    glm::vec3(half_width * 2.0f, height, strip_depth),
+                    tex_collision_clear, true, 1.0f, true, 0.0f);
+        }
+    };
+
+    add_oct_floor_collision("hub_platform_center_collision",
+                            glm::vec3(hub_center.x, 0.12f, hub_center.z),
+                            hub_oct_radius,
+                            0.24f);
+
+    constexpr float hub_catwalk_portal_end = 23.45f;
+    constexpr float hub_catwalk_inner_end = 5.85f;
+    constexpr float hub_catwalk_width = 2.2f;
+    const float hub_catwalk_length = hub_catwalk_portal_end - hub_catwalk_inner_end;
+    const float hub_catwalk_center_offset = (hub_catwalk_portal_end + hub_catwalk_inner_end) * 0.5f;
+
+    auto add_catwalk_top = [&](const std::string& name, const glm::vec3& position, const glm::vec3& size, bool rotate_pattern) {
+        const float half_x = size.x * 0.5f;
+        const float half_z = size.z * 0.5f;
+        const float repeat_x = rotate_pattern ? std::max(size.x / 1.35f, 1.0f) : 1.0f;
+        const float repeat_z = rotate_pattern ? 1.0f : std::max(size.z / 1.35f, 1.0f);
+        const auto uv = [&](float u, float v) {
+            return rotate_pattern ? glm::vec2(v, u) : glm::vec2(u, v);
+        };
+
+        std::vector<Vertex> vertices = {
+            { glm::vec3(-half_x, 0.0f, -half_z), glm::vec3(0.0f, 1.0f, 0.0f), uv(0.0f, 0.0f) },
+            { glm::vec3( half_x, 0.0f, -half_z), glm::vec3(0.0f, 1.0f, 0.0f), uv(repeat_x, 0.0f) },
+            { glm::vec3( half_x, 0.0f,  half_z), glm::vec3(0.0f, 1.0f, 0.0f), uv(repeat_x, repeat_z) },
+            { glm::vec3(-half_x, 0.0f,  half_z), glm::vec3(0.0f, 1.0f, 0.0f), uv(0.0f, repeat_z) }
+        };
+        std::vector<GLuint> indices = { 0, 1, 2, 0, 2, 3 };
+
+        auto top = std::make_shared<Model>();
+        auto mesh = std::make_shared<Mesh>(vertices, indices, GL_TRIANGLES);
+        mesh->setTexture(tex_catwalk);
+        top->addMesh(mesh, shader_prog, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f), tex_catwalk);
+        top->pivot_position = position + glm::vec3(0.0f, size.y * 0.5f + 0.006f, 0.0f);
+        top->emissive_color = glm::vec3(0.012f, 0.020f, 0.018f);
+        scene[name] = top;
+        return top;
+    };
+
+    auto add_catwalk = [&](const std::string& name, const glm::vec3& position, const glm::vec3& size, bool rotate_pattern = false) {
+        auto base = add_box(name + "_base", position, size, tex_floor, true);
+        base->emissive_color = glm::vec3(0.006f, 0.014f, 0.012f);
+        add_catwalk_top(name, position, size, rotate_pattern);
+        return base;
+    };
+
+    add_catwalk("hub_catwalk_west",  glm::vec3(-hub_catwalk_center_offset, 0.12f, hub_center.z), glm::vec3(hub_catwalk_length, 0.24f, hub_catwalk_width), true);
+    add_catwalk("hub_catwalk_east",  glm::vec3( hub_catwalk_center_offset, 0.12f, hub_center.z), glm::vec3(hub_catwalk_length, 0.24f, hub_catwalk_width), true);
+    add_catwalk("hub_catwalk_south", glm::vec3(0.0f, 0.12f, hub_center.z + hub_catwalk_center_offset), glm::vec3(hub_catwalk_width, 0.24f, hub_catwalk_length));
+    add_catwalk("hub_catwalk_north", glm::vec3(0.0f, 0.12f, hub_center.z - hub_catwalk_center_offset), glm::vec3(hub_catwalk_width, 0.24f, hub_catwalk_length));
+
+    constexpr float rail_top_y = 1.0f;
+    constexpr float rail_mid_y = 0.78f;
     constexpr float rail_leg_bottom_y = 0.30f;
     constexpr float rail_thickness = 0.08f;
     constexpr float rail_post_spacing = 3.25f;
@@ -499,14 +681,14 @@ void App::init_assets(void) {
     add_railing_segment("hub_oct_rail_nw", glm::vec2(-hub_oct_apothem, -hub_oct_corner), glm::vec2(-hub_oct_corner, -hub_oct_apothem));
     add_railing_segment("hub_oct_rail_ne", glm::vec2( hub_oct_apothem, -hub_oct_corner), glm::vec2( hub_oct_corner, -hub_oct_apothem));
     add_railing_segment("hub_oct_rail_se", glm::vec2( hub_oct_apothem,  hub_oct_corner), glm::vec2( hub_oct_corner,  hub_oct_apothem));
-    add_railing_segment("hub_rail_west_north", glm::vec2(-23.0f, -1.0f), glm::vec2(-6.0f, -1.0f));
-    add_railing_segment("hub_rail_west_south", glm::vec2(-23.0f,  1.0f), glm::vec2(-6.0f,  1.0f));
-    add_railing_segment("hub_rail_east_north", glm::vec2(  6.0f, -1.0f), glm::vec2(23.0f, -1.0f));
-    add_railing_segment("hub_rail_east_south", glm::vec2(  6.0f,  1.0f), glm::vec2(23.0f,  1.0f));
-    add_railing_segment("hub_rail_south_left",  glm::vec2(-1.0f,  6.0f), glm::vec2(-1.0f, 21.5f));
-    add_railing_segment("hub_rail_south_right", glm::vec2( 1.0f,  6.0f), glm::vec2( 1.0f, 21.5f));
-    add_railing_segment("hub_rail_north_left",  glm::vec2(-1.0f, -18.5f), glm::vec2(-1.0f, -6.0f));
-    add_railing_segment("hub_rail_north_right", glm::vec2( 1.0f, -18.5f), glm::vec2( 1.0f, -6.0f));
+    add_railing_segment("hub_rail_west_north", glm::vec2(-hub_catwalk_portal_end, -1.1f), glm::vec2(-hub_oct_apothem, -1.1f));
+    add_railing_segment("hub_rail_west_south", glm::vec2(-hub_catwalk_portal_end,  1.1f), glm::vec2(-hub_oct_apothem,  1.1f));
+    add_railing_segment("hub_rail_east_north", glm::vec2( hub_oct_apothem, -1.1f), glm::vec2(hub_catwalk_portal_end, -1.1f));
+    add_railing_segment("hub_rail_east_south", glm::vec2( hub_oct_apothem,  1.1f), glm::vec2(hub_catwalk_portal_end,  1.1f));
+    add_railing_segment("hub_rail_south_left",  glm::vec2(-1.1f,  hub_oct_apothem), glm::vec2(-1.1f, hub_catwalk_portal_end));
+    add_railing_segment("hub_rail_south_right", glm::vec2( 1.1f,  hub_oct_apothem), glm::vec2( 1.1f, hub_catwalk_portal_end));
+    add_railing_segment("hub_rail_north_left",  glm::vec2(-1.1f, -hub_catwalk_portal_end), glm::vec2(-1.1f, -hub_oct_apothem));
+    add_railing_segment("hub_rail_north_right", glm::vec2( 1.1f, -hub_catwalk_portal_end), glm::vec2( 1.1f, -hub_oct_apothem));
 
     // === Left wing: main corridor → T-junction → Reactor 1 (south) + Reactor 2 (north) ===
     // Main corridor (x=-25 to -44, z=-17.5 to -7.5)
@@ -600,6 +782,11 @@ void App::init_assets(void) {
                                      tex_collision_clear, true, 1.0f, true, 0.0f);
             collision->eulerAngles.y = -glm::degrees(std::atan2(edge.y, edge.x));
         }
+
+        add_oct_floor_collision("hub_orb_pedestal_top_collision",
+                                glm::vec3(hub_center.x, 0.34f, hub_center.z),
+                                2.8f,
+                                0.68f);
     }
 
     add_box("glass_warning_left",  glm::vec3(-20.0f, 2.4f, -12.5f), glm::vec3(0.18f, 4.0f, 7.0f), tex_red_glass,  false, 1.0f, true, 0.35f);
@@ -629,7 +816,29 @@ void App::init_assets(void) {
     Enemy e4{ add_box("enemy_04", glm::vec3(  0.0f, 0.8f, -28.0f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 4, 5.1f };
     enemies = { e1, e2, e3, e4 };
 
-    model = add_box("levitating_orb", glm::vec3(0.0f, 3.7f, -12.5f), glm::vec3(3.9f), tex_terminal, false, 1.0f, true, 0.72f);
+    model = add_box("levitating_orb", glm::vec3(0.0f, 3.7f, -12.5f), glm::vec3(2.6f), tex_terminal, false, 1.0f, true, 0.72f);
+    model->emissive_color = glm::vec3(0.02f, 0.09f, 0.08f);
+    inner_orb_model = add_box("levitating_orb_inner", glm::vec3(0.0f, 3.7f, -12.5f), glm::vec3(1.18f), tex_inner_orb, false, 1.0f, true, 0.34f);
+    inner_orb_model->emissive_color = glm::vec3(0.34f, 0.12f, 0.02f);
+    orb_layer_models.push_back(inner_orb_model);
+    struct OrbLayerSpec {
+        const char* name;
+        glm::vec3 scale;
+        std::shared_ptr<Texture> texture;
+        glm::vec3 emissive;
+        float alpha;
+    };
+    const std::array<OrbLayerSpec, 4> orb_layers = {
+        OrbLayerSpec{ "levitating_orb_layer_yellow",  glm::vec3(0.92f), tex_orb_yellow,  glm::vec3(0.28f, 0.20f, 0.02f), 0.30f },
+        OrbLayerSpec{ "levitating_orb_layer_magenta", glm::vec3(0.70f), tex_orb_magenta, glm::vec3(0.24f, 0.03f, 0.16f), 0.27f },
+        OrbLayerSpec{ "levitating_orb_layer_blue",    glm::vec3(0.52f), tex_orb_blue,    glm::vec3(0.04f, 0.10f, 0.28f), 0.24f },
+        OrbLayerSpec{ "levitating_orb_layer_green",   glm::vec3(0.36f), tex_orb_green,   glm::vec3(0.05f, 0.22f, 0.08f), 0.22f }
+    };
+    for (const auto& layer : orb_layers) {
+        auto layer_model = add_box(layer.name, glm::vec3(0.0f, 3.7f, -12.5f), layer.scale, layer.texture, false, 1.0f, true, layer.alpha);
+        layer_model->emissive_color = layer.emissive;
+        orb_layer_models.push_back(layer_model);
+    }
     fire_sources = {
         glm::vec3( -7.0f, 0.1f,  -9.0f),
         glm::vec3(  7.0f, 0.1f, -16.0f),
@@ -710,11 +919,13 @@ int App::run(void)
 				ImGui::Text("Gate: %s", gate_unlocked ? "UNLOCKED" : "LOCKED");
 				ImGui::Text("Collision: %s (N)", collisions_enabled ? "ON" : "NOCLIP");
 				ImGui::Text("Collision debug: %s (C)", show_collision_debug ? "ON" : "OFF");
+				ImGui::Text("Light debug: %s (L)", show_light_debug ? "ON" : "OFF");
 				ImGui::Text("%s", hud_message.c_str());
 				ImGui::Text("V-Sync: %s (hit V to toggle)", is_vsync_on ? "ON" : "OFF");
 				ImGui::Text("Multisample (AA): %s (hit M to toggle)", is_multisample_on ? "ON" : "OFF");
 				ImGui::Text("LMB fire | E reactor button | P screenshot");
 				ImGui::Text("Space jump | Shift sprint");
+				ImGui::Text("Dev: R toggle all reactors");
 				ImGui::Text("(press RMB to release mouse)");
 				ImGui::Text("(hit G to show/hide info)");
 				ImGui::End();
@@ -733,6 +944,21 @@ int App::run(void)
 			if (model) {
 				model->eulerAngles.y = now * 50.0f;
 				model->eulerAngles.x = now * 30.0f;
+			}
+			if (inner_orb_model) {
+				inner_orb_model->pivot_position = model ? model->pivot_position : glm::vec3(0.0f, 3.7f, -12.5f);
+				inner_orb_model->eulerAngles = model ? model->eulerAngles : glm::vec3(now * 30.0f, now * 50.0f, 0.0f);
+				inner_orb_model->material_alpha = 0.28f + 0.08f * std::sin(static_cast<float>(now) * 3.2f);
+			}
+			for (size_t i = 0; i < orb_layer_models.size(); ++i) {
+				auto& layer = orb_layer_models[i];
+				if (!layer) {
+					continue;
+				}
+				layer->pivot_position = model ? model->pivot_position : glm::vec3(0.0f, 3.7f, -12.5f);
+				layer->eulerAngles = model ? model->eulerAngles : glm::vec3(now * 30.0f, now * 50.0f, 0.0f);
+				const float base_alpha = 0.32f - std::min(static_cast<float>(i) * 0.025f, 0.13f);
+				layer->material_alpha = base_alpha + 0.045f * std::sin(static_cast<float>(now) * 3.2f + static_cast<float>(i) * 0.7f);
 			}
 
 			if (!spot_lights.empty()) {
@@ -786,20 +1012,35 @@ int App::run(void)
 
 			{
 				std::vector<std::shared_ptr<Model>> transparent;
+				std::vector<std::shared_ptr<Model>> oit_orbs;
 				transparent.reserve(scene.size());
+				oit_orbs.reserve(2);
 
 				for (auto& [name, model_obj] : scene) {
 					if (!model_obj->is_transparent) {
 						model_obj->draw();
+					}
+					else if (model_obj == model || model_obj == inner_orb_model ||
+						     std::find(orb_layer_models.begin(), orb_layer_models.end(), model_obj) != orb_layer_models.end()) {
+						oit_orbs.emplace_back(model_obj);
 					}
 					else {
 						transparent.emplace_back(model_obj);
 					}
 				}
 
+				if (!oit_orbs.empty()) {
+					draw_orb_oit(oit_orbs);
+				}
+
 				std::sort(transparent.begin(), transparent.end(),
 					[&](std::shared_ptr<Model> const a, std::shared_ptr<Model> const b) {
-						return glm::distance(camera.Position, a->getPosition()) > glm::distance(camera.Position, b->getPosition());
+						const float da = glm::distance(camera.Position, a->getPosition());
+						const float db = glm::distance(camera.Position, b->getPosition());
+						if (std::abs(da - db) > 0.001f) {
+							return da > db;
+						}
+						return glm::length(a->scale) > glm::length(b->scale);
 					});
 
 				glEnable(GL_BLEND);
@@ -815,6 +1056,9 @@ int App::run(void)
 
 			if (show_collision_debug) {
 				draw_collision_debug();
+			}
+			if (show_light_debug) {
+				draw_light_debug();
 			}
 
 			draw_particles();
@@ -848,6 +1092,12 @@ int App::run(void)
 
 void App::destroy(void)
 {
+    destroy_oit_buffers();
+    if (fullscreen_vao != 0) {
+        glDeleteVertexArrays(1, &fullscreen_vao);
+        fullscreen_vao = 0;
+    }
+
     if (ImGui::GetCurrentContext()) {
 	    ImGui_ImplOpenGL3_Shutdown();
 	    ImGui_ImplGlfw_Shutdown();
@@ -863,6 +1113,65 @@ void App::destroy(void)
 	glfwTerminate();
 }
 
+void App::destroy_oit_buffers()
+{
+    if (oit_depth_tex != 0) {
+        glDeleteTextures(1, &oit_depth_tex);
+        oit_depth_tex = 0;
+    }
+    if (oit_reveal_tex != 0) {
+        glDeleteTextures(1, &oit_reveal_tex);
+        oit_reveal_tex = 0;
+    }
+    if (oit_accum_tex != 0) {
+        glDeleteTextures(1, &oit_accum_tex);
+        oit_accum_tex = 0;
+    }
+    if (oit_fbo != 0) {
+        glDeleteFramebuffers(1, &oit_fbo);
+        oit_fbo = 0;
+    }
+    oit_width = 0;
+    oit_height = 0;
+}
+
+void App::setup_oit_buffers(int buffer_width, int buffer_height)
+{
+    if (buffer_width <= 0 || buffer_height <= 0) {
+        return;
+    }
+    if (oit_fbo != 0 && oit_width == buffer_width && oit_height == buffer_height) {
+        return;
+    }
+
+    destroy_oit_buffers();
+    oit_width = buffer_width;
+    oit_height = buffer_height;
+
+    glCreateFramebuffers(1, &oit_fbo);
+
+    constexpr GLsizei oit_samples = 4;
+
+    glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, &oit_accum_tex);
+    glTextureStorage2DMultisample(oit_accum_tex, oit_samples, GL_RGBA16F, oit_width, oit_height, GL_TRUE);
+    glNamedFramebufferTexture(oit_fbo, GL_COLOR_ATTACHMENT0, oit_accum_tex, 0);
+
+    glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, &oit_reveal_tex);
+    glTextureStorage2DMultisample(oit_reveal_tex, oit_samples, GL_R16F, oit_width, oit_height, GL_TRUE);
+    glNamedFramebufferTexture(oit_fbo, GL_COLOR_ATTACHMENT1, oit_reveal_tex, 0);
+
+    glCreateTextures(GL_TEXTURE_2D_MULTISAMPLE, 1, &oit_depth_tex);
+    glTextureStorage2DMultisample(oit_depth_tex, oit_samples, GL_DEPTH_COMPONENT24, oit_width, oit_height, GL_TRUE);
+    glNamedFramebufferTexture(oit_fbo, GL_DEPTH_ATTACHMENT, oit_depth_tex, 0);
+
+    const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glNamedFramebufferDrawBuffers(oit_fbo, 2, draw_buffers);
+
+    if (glCheckNamedFramebufferStatus(oit_fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "Weighted OIT framebuffer is incomplete.\n";
+    }
+}
+
 App::~App()
 {
 	destroy();
@@ -872,15 +1181,8 @@ App::~App()
 
 void App::update_gameplay(float delta_t, double now)
 {
-	for (size_t i = 0; i < reactors.size() && i < point_lights.size(); ++i) {
+	for (size_t i = 0; i < reactors.size(); ++i) {
 		auto& reactor = reactors[i];
-		const float angle = static_cast<float>(now) * 4.0f + static_cast<float>(i) * glm::two_pi<float>() / 3.0f;
-		const float pulse = reactor.active ? 1.15f + 0.55f * std::sin(static_cast<float>(now) * 8.0f + static_cast<float>(i)) : 0.25f;
-		const glm::vec3 base = reactor.active ? glm::vec3(0.15f, 1.0f, 0.25f) : glm::vec3(0.25f, 0.08f, 0.06f);
-		const glm::vec3 orbit = reactor.active ? glm::vec3(std::cos(angle) * 1.1f, 0.0f, std::sin(angle) * 1.1f) : glm::vec3(0.0f);
-		point_lights[i].position = reactor.model->pivot_position + glm::vec3(0.0f, 1.8f + 0.25f * std::sin(static_cast<float>(now) * 2.5f), 0.0f) + orbit;
-		point_lights[i].diffuse = base * pulse;
-		point_lights[i].ambient = base * 0.08f;
 
 		if (reactor.active) {
 			reactor.model->eulerAngles.y += delta_t * 120.0f;
@@ -891,6 +1193,43 @@ void App::update_gameplay(float delta_t, double now)
 			}
 		}
 	}
+
+    const bool hub_powered = reactors_active >= static_cast<int>(reactors.size());
+    const float light_power = hub_powered ? 1.55f : 0.34f;
+    const float top_light_power = hub_powered ? 2.05f : 0.48f;
+
+    const std::array<PointLight, 6> hub_light_profiles = {
+        PointLight{ glm::vec3(  0.0f, 14.6f, -12.5f), glm::vec3(0.040f, 0.052f, 0.050f), glm::vec3(1.05f, 1.45f, 1.30f), glm::vec3(0.14f, 0.22f, 0.20f), 56.0f },
+        PointLight{ glm::vec3(-21.5f,  4.8f, -12.5f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f },
+        PointLight{ glm::vec3( 21.5f,  4.8f, -12.5f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f },
+        PointLight{ glm::vec3(  0.0f,  4.8f,   9.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f },
+        PointLight{ glm::vec3(  0.0f,  4.8f, -34.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f },
+        PointLight{ glm::vec3(  0.0f,  3.7f, -12.5f), glm::vec3(0.016f, 0.032f, 0.030f), glm::vec3(0.28f, 0.70f, 0.62f), glm::vec3(0.04f, 0.10f, 0.09f), 22.0f }
+    };
+
+    for (size_t i = 0; i < point_lights.size() && i < hub_light_profiles.size(); ++i) {
+        const PointLight& profile = hub_light_profiles[i];
+        const float power = i == 0 ? top_light_power : light_power;
+        point_lights[i].position = profile.position;
+        point_lights[i].ambient = profile.ambient * power;
+        point_lights[i].diffuse = profile.diffuse * power;
+        point_lights[i].specular = profile.specular * power;
+        point_lights[i].radius = profile.radius;
+    }
+
+    const glm::vec3 lamp_dim(0.055f, 0.13f, 0.11f);
+    const glm::vec3 lamp_bright(0.42f, 0.95f, 0.80f);
+    const glm::vec3 top_lamp_dim(0.10f, 0.24f, 0.20f);
+    const glm::vec3 top_lamp_bright(0.70f, 1.35f, 1.12f);
+    for (const char* name : { "hub_lamp_west_portal", "hub_lamp_east_portal", "hub_lamp_south_portal", "hub_lamp_north_portal" }) {
+        auto it = scene.find(name);
+        if (it != scene.end() && it->second) {
+            it->second->emissive_color = hub_powered ? lamp_bright : lamp_dim;
+        }
+    }
+    if (auto it = scene.find("hub_lamp_top_hex"); it != scene.end() && it->second) {
+        it->second->emissive_color = hub_powered ? top_lamp_bright : top_lamp_dim;
+    }
 
 	for (auto& enemy : enemies) {
 		if (!enemy.alive || !enemy.model) {
@@ -1068,6 +1407,34 @@ void App::activate_nearest_reactor()
 	}
 }
 
+void App::toggle_all_reactors()
+{
+	const bool turn_on = reactors_active < static_cast<int>(reactors.size());
+	reactors_active = turn_on ? static_cast<int>(reactors.size()) : 0;
+	gate_unlocked = turn_on;
+
+	for (auto& reactor : reactors) {
+		reactor.active = turn_on;
+		if (reactor.model) {
+			reactor.model->material_alpha = turn_on ? 0.85f : 0.55f;
+			reactor.model->collides = !turn_on;
+		}
+		if (reactor.button) {
+			reactor.button->collides = !turn_on;
+			reactor.button->scale = turn_on ? glm::vec3(0.75f, 0.18f, 0.75f) : glm::vec3(0.8f, 0.35f, 0.8f);
+			reactor.button->material_alpha = 1.0f;
+		}
+	}
+
+	if (!turn_on && gate_model) {
+		gate_model->pivot_position = glm::vec3(0.0f, 1.8f, -39.2f);
+		gate_model->collides = true;
+		gate_model->material_alpha = 1.0f;
+	}
+
+	hud_message = turn_on ? "Dev: all reactors online." : "Dev: all reactors offline.";
+}
+
 void App::fire_weapon()
 {
 	const double now = glfwGetTime();
@@ -1158,6 +1525,12 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
 				this_inst->hud_message = this_inst->show_collision_debug ? "Collision debug enabled." : "Collision debug disabled.";
 			}
 			break;
+		case GLFW_KEY_L:
+			if (action == GLFW_PRESS) {
+				this_inst->show_light_debug = !this_inst->show_light_debug;
+				this_inst->hud_message = this_inst->show_light_debug ? "Light debug enabled." : "Light debug disabled.";
+			}
+			break;
 		case GLFW_KEY_V:
 			this_inst->is_vsync_on = !this_inst->is_vsync_on;
 			glfwSwapInterval(this_inst->is_vsync_on ? 1 : 0);
@@ -1182,6 +1555,11 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
 			break;
 		case GLFW_KEY_E:
 			this_inst->activate_nearest_reactor();
+			break;
+		case GLFW_KEY_R:
+			if (action == GLFW_PRESS) {
+				this_inst->toggle_all_reactors();
+			}
 			break;
 		case GLFW_KEY_M:
 			this_inst->is_multisample_on = !this_inst->is_multisample_on;
@@ -1215,6 +1593,7 @@ void App::glfw_fbsize_callback(GLFWwindow* window, int width, int height) {
 
     glViewport(0, 0, width, height);
     this_inst->update_projection_matrix();
+    this_inst->setup_oit_buffers(width, height);
 }
 
 void App::glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -1470,7 +1849,7 @@ bool App::try_resolve_camera_top_collision(const std::shared_ptr<Model>& obj, fl
 
     const float feet_y = camera.Position.y - PLAYER_EYE_HEIGHT;
     const float top_y = obj->pivot_position.y + obj->scale.y * 0.5f;
-    const bool close_to_top = feet_y >= top_y - 0.18f && feet_y <= top_y + 0.35f;
+    const bool close_to_top = feet_y >= top_y - 0.55f && feet_y <= top_y + 0.35f;
 
     if (!close_to_top || player_vertical_velocity > 0.0f) {
         return false;
@@ -1493,9 +1872,12 @@ bool App::is_over_hub_walkway() const
 {
     const glm::vec2 p(camera.Position.x, camera.Position.z + 12.5f);
     const bool center_platform = std::abs(p.x) <= 6.3f && std::abs(p.y) <= 6.3f;
-    const bool east_west_catwalk = std::abs(p.y) <= 2.05f && std::abs(p.x) <= 24.0f;
-    const bool north_south_catwalk = std::abs(p.x) <= 2.05f && std::abs(p.y) <= 24.0f;
-    return center_platform || east_west_catwalk || north_south_catwalk;
+    const bool orb_pedestal = std::abs(p.x) <= 3.15f && std::abs(p.y) <= 3.15f;
+    const bool west_catwalk = p.x >= -23.7f && p.x <= -5.65f && std::abs(p.y) <= 1.55f;
+    const bool east_catwalk = p.x >= 5.65f && p.x <= 23.7f && std::abs(p.y) <= 1.55f;
+    const bool south_catwalk = p.y >= 5.65f && p.y <= 23.7f && std::abs(p.x) <= 1.55f;
+    const bool north_catwalk = p.y >= -23.7f && p.y <= -5.65f && std::abs(p.x) <= 1.55f;
+    return center_platform || orb_pedestal || west_catwalk || east_catwalk || south_catwalk || north_catwalk;
 }
 
 void App::draw_collision_debug()
@@ -1521,6 +1903,96 @@ void App::draw_collision_debug()
 
     shader_prog->use();
     shader_prog->setUniform("u_debug_collision", 0);
+}
+
+void App::draw_light_debug()
+{
+    if (!light_debug_marker) {
+        return;
+    }
+
+    shader_prog->use();
+    shader_prog->setUniform("u_debug_collision", 1);
+
+    glEnable(GL_BLEND);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_DEPTH_TEST);
+
+    for (size_t i = 0; i < point_lights.size(); ++i) {
+        const bool top_light = i == 0;
+        const glm::vec3 color = top_light ? glm::vec3(1.0f, 0.95f, 0.35f) : glm::vec3(0.15f, 1.0f, 0.85f);
+        shader_prog->setUniform("u_debug_color", glm::vec4(color, top_light ? 0.96f : 0.82f));
+        light_debug_marker->pivot_position = point_lights[i].position;
+        light_debug_marker->scale = glm::vec3(top_light ? 0.55f : 0.36f);
+        light_debug_marker->draw();
+    }
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+
+    shader_prog->use();
+    shader_prog->setUniform("u_debug_collision", 0);
+}
+
+void App::draw_orb_oit(const std::vector<std::shared_ptr<Model>>& oit_models)
+{
+    if (oit_models.empty() || oit_fbo == 0 || oit_composite_prog == nullptr) {
+        return;
+    }
+
+    setup_oit_buffers(width, height);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, oit_fbo);
+    glBlitFramebuffer(0, 0, width, height,
+                      0, 0, oit_width, oit_height,
+                      GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+    const GLfloat accum_clear[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    const GLfloat reveal_clear[] = { 1.0f, 0.0f, 0.0f, 0.0f };
+    glClearNamedFramebufferfv(oit_fbo, GL_COLOR, 0, accum_clear);
+    glClearNamedFramebufferfv(oit_fbo, GL_COLOR, 1, reveal_clear);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, oit_fbo);
+    const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, draw_buffers);
+    glViewport(0, 0, oit_width, oit_height);
+
+    glEnable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glBlendFunci(0, GL_ONE, GL_ONE);
+    glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+
+    shader_prog->use();
+    shader_prog->setUniform("u_oit_pass", 1);
+    for (const auto& orb : oit_models) {
+        if (orb) {
+            orb->draw();
+        }
+    }
+    shader_prog->setUniform("u_oit_pass", 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, width, height);
+
+    glDepthMask(GL_FALSE);
+    glDisable(GL_DEPTH_TEST);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    oit_composite_prog->use();
+    glBindTextureUnit(0, oit_accum_tex);
+    glBindTextureUnit(1, oit_reveal_tex);
+    glBindVertexArray(fullscreen_vao);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    glBindVertexArray(0);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+
+    shader_prog->use();
 }
 
 void App::spawn_particles(const glm::vec3& position, int count) {

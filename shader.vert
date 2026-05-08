@@ -7,6 +7,8 @@ layout(location = 2) in vec2 aTex;
 uniform mat4 uM_m = mat4(1.0);
 uniform mat4 uV_m = mat4(1.0);
 uniform mat4 uP_m = mat4(1.0);
+uniform vec2 u_tex_scale = vec2(1.0);
+uniform int u_swap_tex_axes = 0;
 
 // Light properties - directional
 uniform vec3 dir_light_direction;
@@ -71,7 +73,8 @@ void main()
     vs_out.fragPos = P.xyz;
 
     // Assign texture coordinates
-    vs_out.texCoord = aTex;
+    vec2 tex = u_swap_tex_axes == 1 ? aTex.yx : aTex;
+    vs_out.texCoord = tex * u_tex_scale;
 
     // Calculate the clip-space position of each vertex
     gl_Position = uP_m * P;

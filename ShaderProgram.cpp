@@ -48,6 +48,10 @@ void ShaderProgram::setUniform(const std::string& name, const GLint val) {
     glProgramUniform1i(ID, getUniformLocation(name), val);
 }
 
+void ShaderProgram::setUniform(const std::string& name, const glm::vec2 & val) {
+    glProgramUniform2fv(ID, getUniformLocation(name), 1, glm::value_ptr(val));
+}
+
 void ShaderProgram::setUniform(const std::string& name, const glm::vec3 & val) {
     glProgramUniform3fv(ID, getUniformLocation(name), 1, glm::value_ptr(val));
 }
