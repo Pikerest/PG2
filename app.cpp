@@ -294,28 +294,36 @@ void App::init_assets(void) {
     point_lights.push_back({ glm::vec3(  0.0f, 4.8f,   9.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
     point_lights.push_back({ glm::vec3(  0.0f, 4.8f, -34.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
     point_lights.push_back({ glm::vec3(  0.0f, 3.7f, -12.5f), glm::vec3(0.016f, 0.032f, 0.030f), glm::vec3(0.56f, 1.40f, 1.24f), glm::vec3(0.04f, 0.10f, 0.09f), 22.0f });
-    // Reactor 1 room — static lights (indices 6–7)
-    point_lights.push_back({ glm::vec3(-77.0f, 3.5f,  -3.0f), glm::vec3(0.025f, 0.022f, 0.018f), glm::vec3(0.65f, 0.58f, 0.48f), glm::vec3(0.10f, 0.09f, 0.07f), 20.0f });
-    point_lights.push_back({ glm::vec3(-69.0f, 3.0f,  -3.0f), glm::vec3(0.012f, 0.010f, 0.008f), glm::vec3(0.30f, 0.26f, 0.22f), glm::vec3(0.05f, 0.04f, 0.04f),  9.0f });
-    // Reactor 2 room — static lights (indices 8–9)
-    point_lights.push_back({ glm::vec3(-77.0f, 3.5f, -29.0f), glm::vec3(0.025f, 0.022f, 0.018f), glm::vec3(0.65f, 0.58f, 0.48f), glm::vec3(0.10f, 0.09f, 0.07f), 20.0f });
-    point_lights.push_back({ glm::vec3(-69.0f, 3.0f, -29.0f), glm::vec3(0.012f, 0.010f, 0.008f), glm::vec3(0.30f, 0.26f, 0.22f), glm::vec3(0.05f, 0.04f, 0.04f),  9.0f });
-    // T-junction — index 10
-    point_lights.push_back({ glm::vec3(-50.5f, 3.5f, -17.0f), glm::vec3(0.022f, 0.020f, 0.016f), glm::vec3(0.58f, 0.52f, 0.44f), glm::vec3(0.09f, 0.08f, 0.06f), 22.0f });
-    // Wing entry (east wall lamps) — index 11
-    point_lights.push_back({ glm::vec3(-44.5f, 3.2f, -12.5f), glm::vec3(0.015f, 0.013f, 0.010f), glm::vec3(0.40f, 0.36f, 0.30f), glm::vec3(0.06f, 0.05f, 0.04f),  8.0f });
-    // R1 corridor — index 12
-    point_lights.push_back({ glm::vec3(-62.0f, 3.0f,  -5.0f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.36f, 0.32f, 0.27f), glm::vec3(0.05f, 0.04f, 0.04f),  8.0f });
-    // R2 corridor — index 13
-    point_lights.push_back({ glm::vec3(-62.0f, 3.0f, -29.0f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.36f, 0.32f, 0.27f), glm::vec3(0.05f, 0.04f, 0.04f),  8.0f });
-    // Junction south wall lamp — index 14 (in front of lamp, illuminates north into room)
-    point_lights.push_back({ glm::vec3(-50.5f, 3.0f,  -4.0f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.38f, 0.34f, 0.28f), glm::vec3(0.06f, 0.05f, 0.04f),  8.0f });
-    // Junction north wall lamp — index 15 (in front of lamp, illuminates south into room)
-    point_lights.push_back({ glm::vec3(-50.5f, 3.0f, -31.5f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.38f, 0.34f, 0.28f), glm::vec3(0.06f, 0.05f, 0.04f),  8.0f });
-    // R1 west wall lamp — index 16 (in front of lamp facing east into room)
-    point_lights.push_back({ glm::vec3(-83.0f, 3.0f,  -3.0f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.38f, 0.34f, 0.28f), glm::vec3(0.06f, 0.05f, 0.04f), 10.0f });
-    // R2 west wall lamp — index 17 (in front of lamp facing east into room)
-    point_lights.push_back({ glm::vec3(-83.0f, 3.0f, -29.0f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.38f, 0.34f, 0.28f), glm::vec3(0.06f, 0.05f, 0.04f), 10.0f });
+    // === Left wing — one dedicated point light per lamp, consistent values ===
+    // Ceiling lamp: ambient(0.022,0.020,0.016) diffuse(0.55,0.50,0.42) specular(0.08,0.07,0.06) r=8
+    // Wall lamp:   ambient(0.018,0.016,0.013) diffuse(0.48,0.43,0.36) specular(0.07,0.06,0.05) r=7
+    // Corridor:    ambient(0.015,0.013,0.010) diffuse(0.35,0.31,0.26) specular(0.05,0.04,0.04) r=9
+    // R1 ceiling lamps — directly below lamp
+    point_lights.push_back({ glm::vec3(-77.0f, 3.5f,  -9.0f), glm::vec3(0.048f,0.043f,0.035f), glm::vec3(1.20f,1.09f,0.91f), glm::vec3(0.175f,0.153f,0.132f),  8.0f });
+    point_lights.push_back({ glm::vec3(-77.0f, 3.5f,   3.0f), glm::vec3(0.048f,0.043f,0.035f), glm::vec3(1.20f,1.09f,0.91f), glm::vec3(0.175f,0.153f,0.132f),  8.0f });
+    // R1 wall lamps — slightly in front into room
+    point_lights.push_back({ glm::vec3(-85.0f, 3.0f,  -3.0f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(1.05f,0.95f,0.78f), glm::vec3(0.153f,0.132f,0.109f),  7.0f }); // west
+    point_lights.push_back({ glm::vec3(-77.0f, 3.0f, -12.5f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(1.05f,0.95f,0.78f), glm::vec3(0.153f,0.132f,0.109f),  7.0f }); // north
+    point_lights.push_back({ glm::vec3(-77.0f, 3.0f,   6.5f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(1.05f,0.95f,0.78f), glm::vec3(0.153f,0.132f,0.109f),  7.0f }); // south
+    // R1 corridor
+    point_lights.push_back({ glm::vec3(-65.0f, 3.0f,  -5.0f), glm::vec3(0.032f,0.029f,0.022f), glm::vec3(0.77f,0.67f,0.56f), glm::vec3(0.109f,0.087f,0.087f),  9.0f });
+    // R2 ceiling lamps
+    point_lights.push_back({ glm::vec3(-77.0f, 3.5f, -35.0f), glm::vec3(0.048f,0.043f,0.035f), glm::vec3(1.20f,1.09f,0.91f), glm::vec3(0.175f,0.153f,0.132f),  8.0f });
+    point_lights.push_back({ glm::vec3(-77.0f, 3.5f, -23.0f), glm::vec3(0.048f,0.043f,0.035f), glm::vec3(1.20f,1.09f,0.91f), glm::vec3(0.175f,0.153f,0.132f),  8.0f });
+    // R2 wall lamps
+    point_lights.push_back({ glm::vec3(-85.0f, 3.0f, -29.0f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(1.05f,0.95f,0.78f), glm::vec3(0.153f,0.132f,0.109f),  7.0f }); // west
+    point_lights.push_back({ glm::vec3(-77.0f, 3.0f, -36.5f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(1.05f,0.95f,0.78f), glm::vec3(0.153f,0.132f,0.109f),  7.0f }); // north
+    point_lights.push_back({ glm::vec3(-77.0f, 3.0f, -21.5f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(1.05f,0.95f,0.78f), glm::vec3(0.153f,0.132f,0.109f),  7.0f }); // south
+    // R2 corridor
+    point_lights.push_back({ glm::vec3(-65.0f, 3.0f, -29.0f), glm::vec3(0.032f,0.029f,0.022f), glm::vec3(0.77f,0.67f,0.56f), glm::vec3(0.109f,0.087f,0.087f),  9.0f });
+    // Junction/wing lamps
+    point_lights.push_back({ glm::vec3(-45.5f, 3.0f, -16.5f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(1.05f,0.95f,0.78f), glm::vec3(0.153f,0.132f,0.109f),  6.0f }); // entry left
+    point_lights.push_back({ glm::vec3(-45.5f, 3.0f,  -9.0f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(1.05f,0.95f,0.78f), glm::vec3(0.153f,0.132f,0.109f),  6.0f }); // entry right
+    point_lights.push_back({ glm::vec3(-55.0f, 3.0f, -17.0f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(1.05f,0.95f,0.78f), glm::vec3(0.153f,0.132f,0.109f),  9.0f }); // opp wall
+    point_lights.push_back({ glm::vec3(-50.5f, 3.0f,  -3.5f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(1.05f,0.95f,0.78f), glm::vec3(0.153f,0.132f,0.109f),  7.0f }); // south wall
+    point_lights.push_back({ glm::vec3(-50.5f, 3.0f, -32.0f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(1.05f,0.95f,0.78f), glm::vec3(0.153f,0.132f,0.109f),  7.0f }); // north wall
+    // Junction general fill
+    point_lights.push_back({ glm::vec3(-50.5f, 3.5f, -17.0f), glm::vec3(0.041f,0.035f,0.029f), glm::vec3(0.91f,0.84f,0.69f), glm::vec3(0.132f,0.109f,0.087f), 16.0f });
 
     spot_lights.clear();
 
@@ -881,7 +889,7 @@ void App::init_assets(void) {
     // Wall opposite the tunnel opening — west wall of the junction, full width (z=-26 to -8)
     add_lamp("wing_opp_wall_lamp", glm::vec3(-56.6f,  2.85f, -17.0f),  glm::vec3(0.12f, 0.22f, 17.5f));
     // Right wall when entering from tunnel — south wall of junction, middle
-    add_lamp("wing_south_wall_lamp", glm::vec3(-50.5f, 2.85f,  -1.1f),  glm::vec3(8.0f, 0.22f, 0.12f));
+    add_lamp("wing_south_wall_lamp", glm::vec3(-50.5f, 2.85f,  -1.9f),  glm::vec3(8.0f, 0.22f, 0.12f));
     // North wall of junction — the blank far wall (inside room, lamp faces south)
     add_lamp("wing_north_wall_lamp", glm::vec3(-50.5f, 2.85f, -33.85f), glm::vec3(8.0f, 0.22f, 0.12f));
 
@@ -1575,6 +1583,28 @@ void App::update_gameplay(float delta_t, double now)
         point_lights[i].diffuse  = profile.diffuse  * power;
         point_lights[i].specular = profile.specular * power;
         point_lights[i].radius   = profile.radius;
+    }
+
+    // Reactor room light flicker (indices 6–17 = all R1+R2 lamps)
+    if (point_lights.size() > 17) {
+        const float t = static_cast<float>(now);
+        // R1: deep flicker — sum can go negative → clamped to 0.05 (nearly off)
+        const float r1 = std::max(0.05f, 0.50f + 0.45f * std::sin(t * 7.3f)
+                                        + 0.25f * std::sin(t * 19.7f + 0.8f)
+                                        + 0.10f * std::sin(t * 43.1f));
+        // R2: different phase so rooms flicker independently
+        const float r2 = std::max(0.05f, 0.50f + 0.45f * std::sin(t * 6.8f + 1.57f)
+                                        + 0.25f * std::sin(t * 21.3f + 0.4f)
+                                        + 0.10f * std::sin(t * 51.7f));
+        const glm::vec3 ceil_base(1.20f, 1.09f, 0.91f);
+        const glm::vec3 wall_base(1.05f, 0.95f, 0.78f);
+        const glm::vec3 corr_base(0.77f, 0.67f, 0.56f);
+        for (int i = 6;  i <= 7;  ++i) point_lights[i].diffuse = ceil_base * r1;
+        for (int i = 8;  i <= 10; ++i) point_lights[i].diffuse = wall_base * r1;
+        point_lights[11].diffuse = corr_base * r1;
+        for (int i = 12; i <= 13; ++i) point_lights[i].diffuse = ceil_base * r2;
+        for (int i = 14; i <= 16; ++i) point_lights[i].diffuse = wall_base * r2;
+        point_lights[17].diffuse = corr_base * r2;
     }
 
     // Orb light — bright while reactors are off, fades out once hub is fully powered
