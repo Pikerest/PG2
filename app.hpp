@@ -1,8 +1,10 @@
 #pragma once
 
 // Standard headers
+#include <array>
 #include <vector>
 #include <string>
+#include <unordered_set>
 
 // Third-party headers
 #include "GLFW/glfw3.h"
@@ -117,8 +119,20 @@ private:
     DirectionalLight dir_light;
     std::vector<PointLight> point_lights;
     std::vector<SpotLight> spot_lights;
+
+    // Frustum planes (updated each frame)
+    std::array<glm::vec4, 6> frustum_planes{};
     int active_light_type = 0;
     int active_light_index = 0;
+
+    // Persistent render lists — cleared each frame, avoids per-frame heap alloc
+    std::vector<std::shared_ptr<Model>> render_opaque;
+    std::vector<std::shared_ptr<Model>> render_transparent;
+    std::vector<std::shared_ptr<Model>> render_oit_orbs;
+    // Objects with collides==true, built once in init_assets
+    std::vector<std::shared_ptr<Model>> scene_colliders;
+    // Orb model pointers, built once in init_assets
+    std::unordered_set<Model*> orb_model_set;
 
     // Application state
     float bg_r = 0.1f, bg_g = 0.1f, bg_b = 0.15f;
@@ -129,6 +143,7 @@ private:
     bool collisions_enabled = true;
     bool show_collision_debug = false;
     bool show_light_debug = false;
+    bool show_trigger_debug = false;
     bool player_on_ground = true;
     float player_vertical_offset = 0.0f;
     float player_vertical_velocity = 0.0f;
@@ -136,7 +151,22 @@ private:
     float view_bob_offset = 0.0f;
     double last_shot_time = -10.0;
     double last_fire_particle_time = 0.0;
-    std::string hud_message = "Containment breach: activate all reactors.";
+    std::string hud_message;
+    double hud_message_time{-100.0};
+    float  hud_message_duration{6.0f};
+
+    std::string location_message;
+    double location_message_time{-100.0};
+    float  location_message_duration{5.5f};
+
+    struct TriggerZone {
+        glm::vec3 position;
+        float radius;
+        std::string message;
+        float duration{6.0f};
+        bool fired{false};
+    };
+    std::vector<TriggerZone> trigger_zones;
     std::vector<Reactor> reactors;
     std::vector<Enemy> enemies;
     std::vector<glm::vec3> fire_sources;
@@ -190,6 +220,8 @@ private:
                                    float radius = 1.0f,
                                    bool transparent = false,
                                    float alpha = 1.0f);
+    void set_hud_message(const std::string& msg, float duration = 6.0f);
+    void show_location_text(const std::string& msg, float duration = 5.5f);
     void update_gameplay(float delta_t, double now);
     void update_player_motion(float delta_t);
     void update_pit_state();
@@ -209,6 +241,7 @@ private:
     bool is_over_hub_walkway() const;
     void draw_collision_debug();
     void draw_light_debug();
+    void draw_trigger_debug();
     void draw_orb_oit(const std::vector<std::shared_ptr<Model>>& oit_models);
 
     // information display routines

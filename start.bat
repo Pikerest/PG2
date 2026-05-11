@@ -1,7 +1,14 @@
 @echo off
 setlocal
 
-set VS_BUILD_TOOLS=D:\VSBuildTools
+set VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe
+set VS_BUILD_TOOLS=
+
+if exist "%VSWHERE%" (
+    for /f "usebackq tokens=*" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VS_BUILD_TOOLS=%%i
+)
+
+if "%VS_BUILD_TOOLS%"=="" set VS_BUILD_TOOLS=C:\VSBuildTools
 set VCVARS=%VS_BUILD_TOOLS%\VC\Auxiliary\Build\vcvarsall.bat
 set VCPKG_ROOT=%VS_BUILD_TOOLS%\VC\vcpkg
 set VCPKG_DOWNLOADS=%~dp0.vcpkg-downloads
@@ -41,7 +48,7 @@ git --version
 
 echo Configuring project...
 
-"%CMAKE_EXE%" -S . -B build -G Ninja -DCMAKE_MAKE_PROGRAM="%NINJA_EXE%" -DCMAKE_TOOLCHAIN_FILE="%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake"
+"%CMAKE_EXE%" -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM="%NINJA_EXE%" -DCMAKE_TOOLCHAIN_FILE="%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake"
 if %ERRORLEVEL% neq 0 (
     echo Configuration failed.
     pause

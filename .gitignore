@@ -4,6 +4,7 @@
 /out/
 /cmake-build-*/
 /.vcpkg-downloads/
+/PG25-Podklady/
 
 # CMake files
 CMakeCache.txt

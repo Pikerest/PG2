@@ -25,6 +25,9 @@ public:
     // Simple mesh from vertices
     Mesh(std::vector<Vertex> const &vertices, GLenum primitive_type) : primitive_type_{primitive_type}, vertices_{vertices}
     {
+        for (const auto& v : vertices_)
+            mesh_bounding_radius_ = std::max(mesh_bounding_radius_, glm::length(v.Position));
+
         glCreateVertexArrays(1, &vao_);
         glCreateBuffers(1, &vbo_);
 
@@ -55,6 +58,8 @@ public:
         glVertexArrayElementBuffer(vao_, ebo_);
     }    
 
+    float get_mesh_bounding_radius() const { return mesh_bounding_radius_; }
+
     void draw() {
         if (texture_) {
             texture_->bind(0);
@@ -78,12 +83,11 @@ public:
     	glDeleteVertexArrays(1, &vao_);
     };
 private:
-    // safe defaults
-    GLenum primitive_type_{GL_POINTS}; 
+    GLenum primitive_type_{GL_POINTS};
 
-    // keep the data
     std::vector<Vertex> vertices_;
     std::vector<GLuint> indices_;
+    float mesh_bounding_radius_{0.0f};
     
     // OpenGL buffer IDs
     // ID = 0 is reserved (i.e. uninitalized)
