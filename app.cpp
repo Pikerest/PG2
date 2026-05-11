@@ -294,6 +294,28 @@ void App::init_assets(void) {
     point_lights.push_back({ glm::vec3(  0.0f, 4.8f,   9.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
     point_lights.push_back({ glm::vec3(  0.0f, 4.8f, -34.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
     point_lights.push_back({ glm::vec3(  0.0f, 3.7f, -12.5f), glm::vec3(0.016f, 0.032f, 0.030f), glm::vec3(0.56f, 1.40f, 1.24f), glm::vec3(0.04f, 0.10f, 0.09f), 22.0f });
+    // Reactor 1 room — static lights (indices 6–7)
+    point_lights.push_back({ glm::vec3(-77.0f, 3.5f,  -3.0f), glm::vec3(0.025f, 0.022f, 0.018f), glm::vec3(0.65f, 0.58f, 0.48f), glm::vec3(0.10f, 0.09f, 0.07f), 20.0f });
+    point_lights.push_back({ glm::vec3(-69.0f, 3.0f,  -3.0f), glm::vec3(0.012f, 0.010f, 0.008f), glm::vec3(0.30f, 0.26f, 0.22f), glm::vec3(0.05f, 0.04f, 0.04f),  9.0f });
+    // Reactor 2 room — static lights (indices 8–9)
+    point_lights.push_back({ glm::vec3(-77.0f, 3.5f, -29.0f), glm::vec3(0.025f, 0.022f, 0.018f), glm::vec3(0.65f, 0.58f, 0.48f), glm::vec3(0.10f, 0.09f, 0.07f), 20.0f });
+    point_lights.push_back({ glm::vec3(-69.0f, 3.0f, -29.0f), glm::vec3(0.012f, 0.010f, 0.008f), glm::vec3(0.30f, 0.26f, 0.22f), glm::vec3(0.05f, 0.04f, 0.04f),  9.0f });
+    // T-junction — index 10
+    point_lights.push_back({ glm::vec3(-50.5f, 3.5f, -17.0f), glm::vec3(0.022f, 0.020f, 0.016f), glm::vec3(0.58f, 0.52f, 0.44f), glm::vec3(0.09f, 0.08f, 0.06f), 22.0f });
+    // Wing entry (east wall lamps) — index 11
+    point_lights.push_back({ glm::vec3(-44.5f, 3.2f, -12.5f), glm::vec3(0.015f, 0.013f, 0.010f), glm::vec3(0.40f, 0.36f, 0.30f), glm::vec3(0.06f, 0.05f, 0.04f),  8.0f });
+    // R1 corridor — index 12
+    point_lights.push_back({ glm::vec3(-62.0f, 3.0f,  -5.0f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.36f, 0.32f, 0.27f), glm::vec3(0.05f, 0.04f, 0.04f),  8.0f });
+    // R2 corridor — index 13
+    point_lights.push_back({ glm::vec3(-62.0f, 3.0f, -29.0f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.36f, 0.32f, 0.27f), glm::vec3(0.05f, 0.04f, 0.04f),  8.0f });
+    // Junction south wall lamp — index 14 (in front of lamp, illuminates north into room)
+    point_lights.push_back({ glm::vec3(-50.5f, 3.0f,  -4.0f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.38f, 0.34f, 0.28f), glm::vec3(0.06f, 0.05f, 0.04f),  8.0f });
+    // Junction north wall lamp — index 15 (in front of lamp, illuminates south into room)
+    point_lights.push_back({ glm::vec3(-50.5f, 3.0f, -31.5f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.38f, 0.34f, 0.28f), glm::vec3(0.06f, 0.05f, 0.04f),  8.0f });
+    // R1 west wall lamp — index 16 (in front of lamp facing east into room)
+    point_lights.push_back({ glm::vec3(-83.0f, 3.0f,  -3.0f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.38f, 0.34f, 0.28f), glm::vec3(0.06f, 0.05f, 0.04f), 10.0f });
+    // R2 west wall lamp — index 17 (in front of lamp facing east into room)
+    point_lights.push_back({ glm::vec3(-83.0f, 3.0f, -29.0f), glm::vec3(0.014f, 0.012f, 0.010f), glm::vec3(0.38f, 0.34f, 0.28f), glm::vec3(0.06f, 0.05f, 0.04f), 10.0f });
 
     spot_lights.clear();
 
@@ -821,14 +843,17 @@ void App::init_assets(void) {
     add_railing_segment("hub_rail_north_right", glm::vec2( 1.1f, -hub_catwalk_portal_end), glm::vec2( 1.1f, -hub_oct_apothem));
 
     // === Left wing: main corridor → T-junction → Reactor 1 (south) + Reactor 2 (north) ===
-    // Main corridor (x=-25 to -44, z=-17.5 to -7.5)
-
     // T-junction room (x=-44 to -57, z=-34 to -2)
     add_box("left_junc_north_wall",  glm::vec3(-50.5f, 2.0f, -34.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
     add_box("left_junc_south_wall",  glm::vec3(-50.5f, 2.0f,  -1.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
-    // East wall of junction — gap at z=-17.5 to -7.5 for corridor entry
-    add_box("left_junc_east_n",      glm::vec3(-44.5f, 2.0f, -26.0f), glm::vec3(0.8f, 4.0f, 16.0f), tex_wall, true, 1.5f);
-    add_box("left_junc_east_s",      glm::vec3(-44.5f, 2.0f,  -4.5f), glm::vec3(0.8f, 4.0f,  5.0f), tex_wall, true, 1.5f);
+    // East wall — opening z=-14.861 to -10.139, height 5.2 to cover full hex
+    add_box("left_junc_east_n", glm::vec3(-44.235f, 2.0f, -24.430f), glm::vec3(0.8f, 4.0f, 19.139f), tex_wall, true, 1.5f);
+    add_box("left_junc_east_s", glm::vec3(-44.235f, 2.0f,  -6.070f), glm::vec3(0.8f, 4.0f,  8.139f), tex_wall, true, 1.5f);
+    // Short hex cap bridging tunnel end to junction wall — covers corner gaps naturally
+    constexpr float junc_cap_len = 1.6f;
+    add_hex_tunnel_shell("hub_tunnel_cap_west",
+        glm::vec3(-hub_portal_panel_radius - west_tunnel_len - junc_cap_len * 0.5f, hub_tunnel_y, hub_center.z),
+        junc_cap_len, 0.0f);
     // West wall of junction — two gaps: R2 at z=-32 to -26, R1 at z=-8 to -2
     add_box("left_junc_west_n",      glm::vec3(-57.0f, 2.0f, -33.0f), glm::vec3(0.8f, 4.0f,  2.0f), tex_wall, true, 1.5f);
     add_box("left_junc_west_mid",    glm::vec3(-57.0f, 2.0f, -17.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_wall, true, 1.5f);
@@ -843,6 +868,22 @@ void App::init_assets(void) {
     add_box("reactor1_room_south",   glm::vec3(-77.0f, 2.0f,   8.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
     add_box("reactor1_entry_n",      glm::vec3(-67.5f, 2.0f, -11.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
     add_box("reactor1_entry_s",      glm::vec3(-67.5f, 2.0f,   5.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
+    // Reactor 1 room — ceiling strip lights
+    add_lamp("r1_ceil_lamp_n",     glm::vec3(-77.0f, 3.88f,  -9.0f), glm::vec3(5.5f, 0.12f, 0.55f));
+    add_lamp("r1_ceil_lamp_s",     glm::vec3(-77.0f, 3.88f,   3.0f), glm::vec3(5.5f, 0.12f, 0.55f));
+    // Reactor 1 room — wall strip lights
+    add_lamp("r1_wall_lamp_west",  glm::vec3(-87.1f, 2.85f,  -3.0f), glm::vec3(0.12f, 0.22f, 12.0f));
+    add_lamp("r1_wall_lamp_north", glm::vec3(-77.0f, 2.85f, -14.1f), glm::vec3(12.0f, 0.22f, 0.12f));
+    add_lamp("r1_wall_lamp_south", glm::vec3(-77.0f, 2.85f,   8.1f), glm::vec3(12.0f, 0.22f, 0.12f));
+    // Left and right of entrance — inner face of east wall, near hex opening edges (z=-14.861 / -10.139)
+    add_lamp("wing_entry_left",    glm::vec3(-44.64f, 2.85f, -16.5f),  glm::vec3(0.12f, 0.22f, 3.5f));
+    add_lamp("wing_entry_right",   glm::vec3(-44.64f, 2.85f,  -9.0f),  glm::vec3(0.12f, 0.22f, 2.5f));
+    // Wall opposite the tunnel opening — west wall of the junction, full width (z=-26 to -8)
+    add_lamp("wing_opp_wall_lamp", glm::vec3(-56.6f,  2.85f, -17.0f),  glm::vec3(0.12f, 0.22f, 17.5f));
+    // Right wall when entering from tunnel — south wall of junction, middle
+    add_lamp("wing_south_wall_lamp", glm::vec3(-50.5f, 2.85f,  -1.1f),  glm::vec3(8.0f, 0.22f, 0.12f));
+    // North wall of junction — the blank far wall (inside room, lamp faces south)
+    add_lamp("wing_north_wall_lamp", glm::vec3(-50.5f, 2.85f, -33.85f), glm::vec3(8.0f, 0.22f, 0.12f));
 
     // Reactor 2 corridor (north arm, z=-32 to -26, x=-57 to -67)
     add_box("r2_corr_north_wall",    glm::vec3(-62.0f, 2.0f, -32.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
@@ -854,6 +895,20 @@ void App::init_assets(void) {
     add_box("reactor2_room_south",   glm::vec3(-77.0f, 2.0f, -19.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
     add_box("reactor2_entry_n",      glm::vec3(-67.5f, 2.0f, -35.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
     add_box("reactor2_entry_s",      glm::vec3(-67.5f, 2.0f, -23.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
+    // Reactor 2 room — ceiling strip lights (mirrored from R1, offset z by -26)
+    add_lamp("r2_ceil_lamp_n",     glm::vec3(-77.0f, 3.88f, -35.0f), glm::vec3(5.5f, 0.12f, 0.55f));
+    add_lamp("r2_ceil_lamp_s",     glm::vec3(-77.0f, 3.88f, -23.0f), glm::vec3(5.5f, 0.12f, 0.55f));
+    // Reactor 2 room — wall strip lights
+    add_lamp("r2_wall_lamp_west",  glm::vec3(-87.1f, 2.85f, -29.0f), glm::vec3(0.12f, 0.22f, 12.0f));
+    add_lamp("r2_wall_lamp_north", glm::vec3(-77.0f, 2.85f, -38.1f), glm::vec3(12.0f, 0.22f, 0.12f));
+    add_lamp("r2_wall_lamp_south", glm::vec3(-77.0f, 2.85f, -19.9f), glm::vec3(12.0f, 0.22f, 0.12f));
+
+    // === Left wing ceilings — y=4.0, matching floor footprints ===
+    add_box("left_junc_ceiling",   glm::vec3(-50.5f, 4.05f, -18.0f), glm::vec3(13.0f, 0.1f, 32.0f), tex_wall, false, 1.5f);
+    add_box("r1_corr_ceiling",     glm::vec3(-62.0f, 4.05f,  -5.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_wall, false, 1.5f);
+    add_box("reactor1_ceiling",    glm::vec3(-77.0f, 4.05f,  -3.0f), glm::vec3(20.0f, 0.1f, 22.0f), tex_wall, false, 1.5f);
+    add_box("r2_corr_ceiling",     glm::vec3(-62.0f, 4.05f, -29.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_wall, false, 1.5f);
+    add_box("reactor2_ceiling",    glm::vec3(-77.0f, 4.05f, -29.0f), glm::vec3(20.0f, 0.1f, 18.0f), tex_wall, false, 1.5f);
 
     // === Right wing: east corridor → large warehouse → Reactor 3 behind hidden door ===
     // East corridor (x=25 to 45, z=-17.5 to -7.5)
@@ -1248,7 +1303,7 @@ int App::run(void)
 			shader_prog->setUniform("dir_light_diffuse", dir_light.diffuse);
 			shader_prog->setUniform("dir_light_specular", dir_light.specular);
 
-			const int uploaded_point_lights = static_cast<int>(std::min<size_t>(point_lights.size(), 16));
+			const int uploaded_point_lights = static_cast<int>(std::min<size_t>(point_lights.size(), 24));
 			shader_prog->setUniform("num_point_lights", uploaded_point_lights);
 			if (uploaded_point_lights > 0) {
 				static std::vector<glm::vec3> light_positions;
