@@ -9,6 +9,7 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
+#include <unordered_set>
 
 #if __has_include(<opencv2/opencv.hpp>)
     #include <opencv2/opencv.hpp>
@@ -35,6 +36,11 @@
 
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
+
+namespace {
+constexpr float DRAW_ALPHA_EPSILON = 0.001f;
+constexpr size_t MAX_PARTICLES = 128;
+}
 
 static void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
     auto const src_str = [source]() {
@@ -246,6 +252,18 @@ void App::print_glm_info()
 	std::cout << "GLM Version:     (not included)" << std::endl;
 }
 
+void App::set_hud_message(const std::string& msg, float duration) {
+    hud_message = msg;
+    hud_message_time = glfwGetTime();
+    hud_message_duration = duration;
+}
+
+void App::show_location_text(const std::string& msg, float duration) {
+    location_message = msg;
+    location_message_time = glfwGetTime();
+    location_message_duration = duration;
+}
+
 void App::init_assets(void) {
     shader_prog = ShaderProgram::from_files("shader.vert", "shader.frag");
     oit_composite_prog = ShaderProgram::from_files("oit_composite.vert", "oit_composite.frag");
@@ -275,7 +293,7 @@ void App::init_assets(void) {
     point_lights.push_back({ glm::vec3( 21.5f, 4.8f, -12.5f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
     point_lights.push_back({ glm::vec3(  0.0f, 4.8f,   9.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
     point_lights.push_back({ glm::vec3(  0.0f, 4.8f, -34.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
-    point_lights.push_back({ glm::vec3(  0.0f, 3.7f, -12.5f), glm::vec3(0.016f, 0.032f, 0.030f), glm::vec3(0.28f, 0.70f, 0.62f), glm::vec3(0.04f, 0.10f, 0.09f), 22.0f });
+    point_lights.push_back({ glm::vec3(  0.0f, 3.7f, -12.5f), glm::vec3(0.016f, 0.032f, 0.030f), glm::vec3(0.56f, 1.40f, 1.24f), glm::vec3(0.04f, 0.10f, 0.09f), 22.0f });
 
     spot_lights.clear();
 
@@ -290,10 +308,7 @@ void App::init_assets(void) {
     auto tex_rail = std::make_shared<Texture>(glm::vec3(0.68f, 0.82f, 0.74f));
     auto tex_lamp = std::make_shared<Texture>(glm::vec3(0.82f, 1.0f, 0.94f));
     auto tex_inner_orb = std::make_shared<Texture>(glm::vec4(1.0f, 0.46f, 0.08f, 1.0f));
-    auto tex_orb_yellow = std::make_shared<Texture>(glm::vec4(1.0f, 0.82f, 0.10f, 1.0f));
-    auto tex_orb_magenta = std::make_shared<Texture>(glm::vec4(1.0f, 0.14f, 0.72f, 1.0f));
-    auto tex_orb_blue = std::make_shared<Texture>(glm::vec4(0.22f, 0.48f, 1.0f, 1.0f));
-    auto tex_orb_green = std::make_shared<Texture>(glm::vec4(0.28f, 1.0f, 0.46f, 1.0f));
+    auto tex_orb_blue   = std::make_shared<Texture>(glm::vec4(0.22f, 0.48f, 1.0f, 1.0f));
     auto tex_red_glass = std::make_shared<Texture>(glm::vec4(1.0f, 0.12f, 0.08f, 1.0f));
     auto tex_blue_glass = std::make_shared<Texture>(glm::vec4(0.15f, 0.45f, 1.0f, 1.0f));
     auto tex_green_glass = std::make_shared<Texture>(glm::vec4(0.25f, 1.0f, 0.25f, 1.0f));
@@ -307,6 +322,8 @@ void App::init_assets(void) {
     enemies.clear();
     fire_sources.clear();
     hub_door_panels.clear();
+    particles.clear();
+    particles.reserve(MAX_PARTICLES);
     reactors_active = 0;
     gate_unlocked = false;
 
@@ -333,26 +350,136 @@ void App::init_assets(void) {
 
     const glm::vec3 hub_center(0.0f, 0.0f, -12.5f);
 
-    // Solid hexagonal panel dome; portal panels are replaced by tunnel prisms.
-    auto tex_hub_shell = std::make_shared<Texture>(glm::vec3(0.78f, 0.86f, 0.82f));
-    auto hub_shell = std::make_shared<Model>("objects/hub_shell_portals.obj", shader_prog, tex_hub_shell);
-    hub_shell->pivot_position = hub_center;
-    hub_shell->scale = glm::vec3(1.45f);
-    hub_shell->is_transparent = false;
-    hub_shell->material_alpha = 1.0f;
-    hub_shell->emissive_color = glm::vec3(0.018f, 0.020f, 0.018f);
-    scene["hub_hex_shell"] = hub_shell;
+    // Per-panel hex dome — each hexagon is a separate Model so frustum culling
+    // can reject panels behind the player (the old single-mesh OBJ was never culled
+    // because its bounding sphere ~34 units always contained the camera).
+    {
+        constexpr float dome_scale  = 1.45f;
+        constexpr float frame_width = 0.32f;
+        constexpr float portal_row_y = 1.7931034483f;
 
-    auto hub_shell_edges = std::make_shared<Model>("objects/hub_shell_edges.obj", shader_prog, tex_dark);
-    hub_shell_edges->pivot_position = hub_center;
-    hub_shell_edges->scale = glm::vec3(1.45f);
-    scene["hub_hex_shell_edges"] = hub_shell_edges;
+        auto tex_hub_shell = std::make_shared<Texture>(glm::vec3(0.78f, 0.86f, 0.82f));
+        const glm::vec3 fill_emissive(0.018f, 0.020f, 0.018f);
+
+        struct RowDef { float y, r; int count; float offset_deg, size; };
+        const std::array<RowDef, 5> rows = {{
+            { -2.05f,        15.7f, 28,  6.4285714286f, 2.35f },
+            { portal_row_y,  16.3f, 28,  0.0f,          2.35f },
+            {  5.65f,        15.1f, 24,  7.5f,          2.35f },
+            {  9.15f,        11.6f, 20,  0.0f,          2.25f },
+            { 11.85f,         7.2f, 12, 15.0f,          2.10f },
+        }};
+
+        auto is_portal = [&](float angle_deg, float y) -> bool {
+            if (std::abs(y - portal_row_y) > 0.2f) return false;
+            for (float ax : {0.0f, 90.0f, 180.0f, 270.0f}) {
+                float d = std::abs(std::fmod(angle_deg - ax + 540.0f, 360.0f) - 180.0f);
+                if (d < 10.0f) return true;
+            }
+            return false;
+        };
+
+        // Build one hexagonal panel (fill face + edge ring) as two scene entries.
+        int panel_idx = 0;
+        auto add_dome_panel = [&](const glm::vec3& ctr_ms, const glm::vec3& nm, float rad) {
+            glm::vec3 n = glm::normalize(nm);
+            // Local UV frame perpendicular to panel normal
+            glm::vec3 u = glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), n);
+            if (glm::length(u) < 0.001f)
+                u = glm::cross(glm::vec3(1.0f, 0.0f, 0.0f), n);
+            u = glm::normalize(u);
+            glm::vec3 v = glm::normalize(glm::cross(n, u));
+
+            float inner_r = rad - frame_width;
+            glm::vec3 inward = -n; // normals face inside (toward player)
+
+            // Panel pivot in world space; vertices are relative to this pivot
+            glm::vec3 world_pivot = hub_center + ctr_ms * dome_scale;
+            std::string sidx = std::to_string(panel_idx);
+
+            // --- Fill hexagon (center + 6 inner vertices, 6 fan triangles) ---
+            {
+                std::vector<Vertex>  verts;  verts.reserve(7);
+                std::vector<GLuint>  faces;  faces.reserve(18);
+
+                verts.push_back({ n * (0.04f * dome_scale), inward, {0.5f, 0.5f} });
+                for (int i = 0; i < 6; i++) {
+                    float a  = glm::two_pi<float>() * i / 6.0f;
+                    float ca = std::cos(a), sa = std::sin(a);
+                    glm::vec3 pos = n * (0.035f * dome_scale)
+                                  + u * (ca * inner_r * dome_scale)
+                                  + v * (sa * inner_r * dome_scale);
+                    verts.push_back({ pos, inward, {0.5f + ca * 0.45f, 0.5f + sa * 0.45f} });
+                }
+                for (int i = 0; i < 6; i++) {
+                    faces.push_back(0);
+                    faces.push_back(static_cast<GLuint>(1 + i));
+                    faces.push_back(static_cast<GLuint>(1 + (i + 1) % 6));
+                }
+
+                auto m = std::make_shared<Model>();
+                m->pivot_position = world_pivot;
+                m->emissive_color  = fill_emissive;
+                auto mesh = std::make_shared<Mesh>(verts, faces, GL_TRIANGLES);
+                mesh->setTexture(tex_hub_shell);
+                m->addMesh(mesh, shader_prog, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f), tex_hub_shell);
+                scene["hdp_f_" + sidx] = m;
+            }
+
+            // --- Edge ring (6 outer + 6 inner vertices, 12 triangles) ---
+            {
+                std::vector<Vertex>  verts;  verts.reserve(12);
+                std::vector<GLuint>  faces;  faces.reserve(36);
+
+                for (int i = 0; i < 6; i++) {
+                    float a  = glm::two_pi<float>() * i / 6.0f;
+                    float ca = std::cos(a), sa = std::sin(a);
+                    glm::vec3 outer = u * (ca * rad    * dome_scale) + v * (sa * rad    * dome_scale);
+                    glm::vec3 inner = n * (0.035f * dome_scale)
+                                    + u * (ca * inner_r * dome_scale)
+                                    + v * (sa * inner_r * dome_scale);
+                    verts.push_back({ outer, inward, {0.0f, float(i) / 6.0f} });
+                    verts.push_back({ inner, inward, {1.0f, float(i) / 6.0f} });
+                }
+                for (int i = 0; i < 6; i++) {
+                    int next = (i + 1) % 6;
+                    GLuint oi = i * 2, oi1 = next * 2, ii = i * 2 + 1, ii1 = next * 2 + 1;
+                    faces.push_back(oi);  faces.push_back(oi1); faces.push_back(ii1);
+                    faces.push_back(oi);  faces.push_back(ii1); faces.push_back(ii);
+                }
+
+                auto m = std::make_shared<Model>();
+                m->pivot_position = world_pivot;
+                auto mesh = std::make_shared<Mesh>(verts, faces, GL_TRIANGLES);
+                mesh->setTexture(tex_dark);
+                m->addMesh(mesh, shader_prog, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f), tex_dark);
+                scene["hdp_e_" + sidx] = m;
+            }
+
+            panel_idx++;
+        };
+
+        for (const auto& row : rows) {
+            for (int i = 0; i < row.count; i++) {
+                float angle_deg = row.offset_deg + (float(i) * 360.0f / float(row.count));
+                if (is_portal(angle_deg, row.y)) continue;
+                float ar = glm::radians(angle_deg);
+                glm::vec3 ctr(std::cos(ar) * row.r, row.y, std::sin(ar) * row.r);
+                glm::vec3 nm = glm::normalize(glm::vec3(ctr.x, ctr.y - 2.0f, ctr.z));
+                add_dome_panel(ctr, nm, row.size);
+            }
+        }
+        // Top cap panel
+        add_dome_panel(glm::vec3(0.0f, 13.1f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 2.15f);
+    }
 
     constexpr float hub_dome_model_scale = 1.45f;
     constexpr float hub_portal_panel_radius = 16.3f * hub_dome_model_scale;
     constexpr float hub_portal_panel_y = 1.7931034483f * hub_dome_model_scale;
     constexpr float hub_portal_hex_radius = 2.35f * hub_dome_model_scale;
     constexpr float hub_tunnel_visual_radius = hub_portal_hex_radius * 0.80f;
+    constexpr float hub_tunnel_floor = 0.24f; // matches hub catwalk top surface
+    constexpr float hub_tunnel_y = hub_tunnel_floor + 0.744782f * hub_tunnel_visual_radius;
 
     auto tex_tunnel_shell = std::make_shared<Texture>(glm::vec3(0.78f, 0.86f, 0.82f));
     auto add_hex_tunnel_shell = [&](const std::string& name, glm::vec3 position, float length, float yaw_degrees) {
@@ -362,6 +489,7 @@ void App::init_assets(void) {
         tunnel->scale = glm::vec3(length, hub_tunnel_visual_radius, hub_tunnel_visual_radius);
         tunnel->is_transparent = false;
         tunnel->material_alpha = 1.0f;
+        tunnel->two_sided_lighting = true;
         scene[name] = tunnel;
         return tunnel;
     };
@@ -371,10 +499,10 @@ void App::init_assets(void) {
     constexpr float south_tunnel_len = 16.8f;
     constexpr float north_tunnel_len = 9.8f;
 
-    add_hex_tunnel_shell("hub_tunnel_shell_west",  glm::vec3(-hub_portal_panel_radius - west_tunnel_len * 0.5f, hub_portal_panel_y, hub_center.z), west_tunnel_len, 0.0f);
-    add_hex_tunnel_shell("hub_tunnel_shell_east",  glm::vec3( hub_portal_panel_radius + east_tunnel_len * 0.5f, hub_portal_panel_y, hub_center.z), east_tunnel_len, 0.0f);
-    add_hex_tunnel_shell("hub_tunnel_shell_south", glm::vec3(0.0f, hub_portal_panel_y, hub_center.z + hub_portal_panel_radius + south_tunnel_len * 0.5f), south_tunnel_len, 90.0f);
-    add_hex_tunnel_shell("hub_tunnel_shell_north", glm::vec3(0.0f, hub_portal_panel_y, hub_center.z - hub_portal_panel_radius - north_tunnel_len * 0.5f), north_tunnel_len, 90.0f);
+    add_hex_tunnel_shell("hub_tunnel_shell_west",  glm::vec3(-hub_portal_panel_radius - west_tunnel_len * 0.5f, hub_tunnel_y, hub_center.z), west_tunnel_len, 0.0f);
+    add_hex_tunnel_shell("hub_tunnel_shell_east",  glm::vec3( hub_portal_panel_radius + east_tunnel_len * 0.5f, hub_tunnel_y, hub_center.z), east_tunnel_len, 0.0f);
+    add_hex_tunnel_shell("hub_tunnel_shell_south", glm::vec3(0.0f, hub_tunnel_y, hub_center.z + hub_portal_panel_radius + south_tunnel_len * 0.5f), south_tunnel_len, 90.0f);
+    add_hex_tunnel_shell("hub_tunnel_shell_north", glm::vec3(0.0f, hub_tunnel_y, hub_center.z - hub_portal_panel_radius - north_tunnel_len * 0.5f), north_tunnel_len, 90.0f);
 
     auto add_lamp = [&](const std::string& name, const glm::vec3& position, const glm::vec3& size, float yaw_degrees = 0.0f) {
         auto lamp = add_box(name, position, size, tex_lamp, false);
@@ -424,12 +552,14 @@ void App::init_assets(void) {
 
     auto tex_collision_clear = std::make_shared<Texture>(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
-    constexpr float tunnel_walk_half_width = 2.56f;
+    // Inner hex flat-side half-width = 0.860 * radius; use 0.82 to stay just inside the walls
+    const float tunnel_walk_half_width  = 0.60f  * hub_tunnel_visual_radius; // ~1.77
     constexpr float tunnel_collision_thickness = 0.30f;
-    const float tunnel_collision_height = hub_tunnel_visual_radius * 1.70f;
-    const float tunnel_collision_y = hub_portal_panel_y;
+    // Inner hex height = 2 * 0.744782 * radius; use 1.44 to stay just inside ceiling
+    const float tunnel_collision_height = 1.44f  * hub_tunnel_visual_radius;
+    const float tunnel_collision_y      = hub_tunnel_y; // aligned with lowered tunnel shell
     auto add_tunnel_collision_x = [&](const std::string& name, glm::vec3 center, float length) {
-        add_box(name + "_floor", glm::vec3(center.x, -0.05f, center.z),
+        add_box(name + "_floor", glm::vec3(center.x, 0.19f, center.z),
                 glm::vec3(length, 0.10f, tunnel_walk_half_width * 2.0f), tex_collision_clear, true, 1.0f, true, 0.0f);
         add_box(name + "_north_wall", glm::vec3(center.x, tunnel_collision_y, center.z - tunnel_walk_half_width),
                 glm::vec3(length, tunnel_collision_height, tunnel_collision_thickness), tex_collision_clear, true, 1.0f, true, 0.0f);
@@ -437,7 +567,7 @@ void App::init_assets(void) {
                 glm::vec3(length, tunnel_collision_height, tunnel_collision_thickness), tex_collision_clear, true, 1.0f, true, 0.0f);
     };
     auto add_tunnel_collision_z = [&](const std::string& name, glm::vec3 center, float length) {
-        add_box(name + "_floor", glm::vec3(center.x, -0.05f, center.z),
+        add_box(name + "_floor", glm::vec3(center.x, 0.19f, center.z),
                 glm::vec3(tunnel_walk_half_width * 2.0f, 0.10f, length), tex_collision_clear, true, 1.0f, true, 0.0f);
         add_box(name + "_west_wall", glm::vec3(center.x - tunnel_walk_half_width, tunnel_collision_y, center.z),
                 glm::vec3(tunnel_collision_thickness, tunnel_collision_height, length), tex_collision_clear, true, 1.0f, true, 0.0f);
@@ -818,8 +948,10 @@ void App::init_assets(void) {
 
     model = add_box("levitating_orb", glm::vec3(0.0f, 3.7f, -12.5f), glm::vec3(2.6f), tex_terminal, false, 1.0f, true, 0.72f);
     model->emissive_color = glm::vec3(0.02f, 0.09f, 0.08f);
+    model->two_sided_lighting = true;
     inner_orb_model = add_box("levitating_orb_inner", glm::vec3(0.0f, 3.7f, -12.5f), glm::vec3(1.18f), tex_inner_orb, false, 1.0f, true, 0.34f);
     inner_orb_model->emissive_color = glm::vec3(0.34f, 0.12f, 0.02f);
+    inner_orb_model->two_sided_lighting = true;
     orb_layer_models.push_back(inner_orb_model);
     struct OrbLayerSpec {
         const char* name;
@@ -828,33 +960,57 @@ void App::init_assets(void) {
         glm::vec3 emissive;
         float alpha;
     };
-    const std::array<OrbLayerSpec, 4> orb_layers = {
-        OrbLayerSpec{ "levitating_orb_layer_yellow",  glm::vec3(0.92f), tex_orb_yellow,  glm::vec3(0.28f, 0.20f, 0.02f), 0.30f },
-        OrbLayerSpec{ "levitating_orb_layer_magenta", glm::vec3(0.70f), tex_orb_magenta, glm::vec3(0.24f, 0.03f, 0.16f), 0.27f },
-        OrbLayerSpec{ "levitating_orb_layer_blue",    glm::vec3(0.52f), tex_orb_blue,    glm::vec3(0.04f, 0.10f, 0.28f), 0.24f },
-        OrbLayerSpec{ "levitating_orb_layer_green",   glm::vec3(0.36f), tex_orb_green,   glm::vec3(0.05f, 0.22f, 0.08f), 0.22f }
+   
+    const std::array<OrbLayerSpec, 1> orb_layers = {
+        OrbLayerSpec{ "levitating_orb_layer_blue", glm::vec3(0.59f), tex_orb_blue, glm::vec3(0.04f, 0.10f, 0.28f), 0.28f },
     };
     for (const auto& layer : orb_layers) {
         auto layer_model = add_box(layer.name, glm::vec3(0.0f, 3.7f, -12.5f), layer.scale, layer.texture, false, 1.0f, true, layer.alpha);
         layer_model->emissive_color = layer.emissive;
+        layer_model->two_sided_lighting = true;
         orb_layer_models.push_back(layer_model);
     }
-    fire_sources = {
-        glm::vec3( -7.0f, 0.1f,  -9.0f),
-        glm::vec3(  7.0f, 0.1f, -16.0f),
-        glm::vec3(-50.0f, 0.1f,  -5.0f),
-        glm::vec3(-50.0f, 0.1f, -29.0f),
-        glm::vec3( 58.0f, 0.1f, -32.0f),
-        glm::vec3( 70.0f, 0.1f,  -5.0f),
-        glm::vec3(  0.0f, 0.1f, -31.0f),
-        glm::vec3( 89.0f, 0.1f, -18.0f)
-    };
+    // fire_sources = {
+    //     glm::vec3( -7.0f, 0.1f,  -9.0f),
+    //     glm::vec3(  7.0f, 0.1f, -16.0f),
+    //     glm::vec3(-50.0f, 0.1f,  -5.0f),
+    //     glm::vec3(-50.0f, 0.1f, -29.0f),
+    //     glm::vec3( 58.0f, 0.1f, -32.0f),
+    //     glm::vec3( 70.0f, 0.1f,  -5.0f),
+    //     glm::vec3(  0.0f, 0.1f, -31.0f),
+    //     glm::vec3( 89.0f, 0.1f, -18.0f)
+    // };
 
     auto tex_particle = std::make_shared<Texture>(glm::vec4(1.0f, 0.8f, 0.2f, 1.0f));
     particle_template = std::make_shared<Model>("objects/tetrahedron.obj", shader_prog, tex_particle);
     particle_template->scale = glm::vec3(0.1f);
     particle_template->is_transparent = true;
     particle_template->material_alpha = 0.8f;
+
+    scene_colliders.clear();
+    for (auto& [name, obj] : scene)
+        if (obj && obj->collides)
+            scene_colliders.push_back(obj);
+
+    orb_model_set.clear();
+    if (model)           orb_model_set.insert(model.get());
+    if (inner_orb_model) orb_model_set.insert(inner_orb_model.get());
+    for (auto& m : orb_layer_models) if (m) orb_model_set.insert(m.get());
+
+    // Pre-size render lists to avoid first-frame realloc
+    render_opaque.reserve(scene.size());
+    render_transparent.reserve(32);
+    render_oit_orbs.reserve(orb_model_set.size() + 4);
+
+    // Trigger zones — message fires once when player enters the radius
+    trigger_zones = {
+        { glm::vec3(  0.0f, 2.0f,  0.0f), 4.0f, "Containment Zone",  5.5f },
+        { glm::vec3(-30.0f, 2.0f, -12.5f), 3.0f, "West Wing",         5.5f },
+        { glm::vec3( 30.0f, 2.0f, -12.5f), 3.0f, "East Wing",         5.5f },
+        { glm::vec3(  0.0f, 2.0f, -25.0f), 3.0f, "North Wing",        5.5f },
+    };
+
+    set_hud_message("GOAL: activate all reactors.");
 }
 
 std::shared_ptr<Model> App::add_box(const std::string& name,
@@ -905,13 +1061,15 @@ int App::run(void)
 
 		while (!glfwWindowShouldClose(window))
 		{
+			now = glfwGetTime();
+
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+
 			if (show_imgui) {
-				ImGui_ImplOpenGL3_NewFrame();
-				ImGui_ImplGlfw_NewFrame();
-				ImGui::NewFrame();
 				ImGui::SetNextWindowPos(ImVec2(10, 10));
 				ImGui::SetNextWindowSize(ImVec2(360, 250));
-
 				ImGui::Begin("Info", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 				ImGui::Text("FPS: %.1f", FPS);
 				ImGui::Text("Health: %d", player_health);
@@ -920,7 +1078,7 @@ int App::run(void)
 				ImGui::Text("Collision: %s (N)", collisions_enabled ? "ON" : "NOCLIP");
 				ImGui::Text("Collision debug: %s (C)", show_collision_debug ? "ON" : "OFF");
 				ImGui::Text("Light debug: %s (L)", show_light_debug ? "ON" : "OFF");
-				ImGui::Text("%s", hud_message.c_str());
+				ImGui::Text("Trigger debug: %s (T)", show_trigger_debug ? "ON" : "OFF");
 				ImGui::Text("V-Sync: %s (hit V to toggle)", is_vsync_on ? "ON" : "OFF");
 				ImGui::Text("Multisample (AA): %s (hit M to toggle)", is_multisample_on ? "ON" : "OFF");
 				ImGui::Text("LMB fire | E reactor button | P screenshot");
@@ -931,7 +1089,100 @@ int App::run(void)
 				ImGui::End();
 			}
 
-			now = glfwGetTime();
+			// HUD overlay — always visible, fades out after hud_message_duration seconds
+			{
+				const double elapsed = now - hud_message_time;
+				if (elapsed < hud_message_duration && !hud_message.empty()) {
+					float alpha = 1.0f;
+					const double fade_start = hud_message_duration - 1.5;
+					if (elapsed > fade_start)
+						alpha = static_cast<float>(1.0 - (elapsed - fade_start) / 1.5);
+
+					const ImGuiWindowFlags overlay_flags =
+						ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+						ImGuiWindowFlags_NoNav       | ImGuiWindowFlags_NoMove  |
+						ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
+						ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBackground;
+
+					ImGui::SetNextWindowPos(
+						ImVec2(width * 0.5f, height * 0.83f),
+						ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+					ImGui::SetNextWindowBgAlpha(0.0f);
+					ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+					ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+					ImGui::Begin("##hud_overlay", nullptr, overlay_flags);
+					ImGui::SetWindowFontScale(1.6f);
+					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.82f, 0.96f, 1.00f, alpha));
+					ImGui::TextUnformatted(hud_message.c_str());
+					ImGui::PopStyleColor();
+					ImGui::End();
+					ImGui::PopStyleVar(2);
+				}
+			}
+
+			// Elden Ring–style cinematic location overlay (full-screen, centered, fade in/hold/fade out)
+			{
+				const double elapsed = now - location_message_time;
+				if (elapsed < location_message_duration && !location_message.empty()) {
+					// fade in 1.2s, hold, fade out last 1.5s
+					float alpha;
+					if (elapsed < 1.2)
+						alpha = static_cast<float>(elapsed / 1.2);
+					else if (elapsed < location_message_duration - 1.5)
+						alpha = 1.0f;
+					else
+						alpha = static_cast<float>((location_message_duration - elapsed) / 1.5);
+					alpha = std::clamp(alpha, 0.0f, 1.0f);
+
+					const ImGuiWindowFlags cflags =
+						ImGuiWindowFlags_NoDecoration  | ImGuiWindowFlags_NoInputs |
+						ImGuiWindowFlags_NoNav          | ImGuiWindowFlags_NoMove  |
+						ImGuiWindowFlags_NoSavedSettings| ImGuiWindowFlags_NoFocusOnAppearing |
+						ImGuiWindowFlags_NoBackground;
+
+					ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+					ImGui::SetNextWindowSize(ImVec2(static_cast<float>(width), static_cast<float>(height)));
+					ImGui::SetNextWindowBgAlpha(0.0f);
+					ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+					ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+					ImGui::Begin("##loc_overlay", nullptr, cflags);
+
+					const float scale = 3.2f;
+					ImGui::SetWindowFontScale(scale);
+					const char* txt = location_message.c_str();
+					ImVec2 tsz = ImGui::CalcTextSize(txt);
+					float tx = (width  - tsz.x) * 0.5f;
+					float ty = (height - tsz.y) * 0.5f - tsz.y * 0.15f;
+
+					ImDrawList* dl = ImGui::GetWindowDrawList();
+					const float fs = ImGui::GetFontSize();
+
+					// shadow
+					dl->AddText(ImGui::GetFont(), fs,
+						ImVec2(tx + 2.0f, ty + 2.0f),
+						ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 0.0f, 0.0f, alpha * 0.75f)),
+						txt);
+					// main text — cold white-blue, like the game's teal palette
+					dl->AddText(ImGui::GetFont(), fs,
+						ImVec2(tx, ty),
+						ImGui::ColorConvertFloat4ToU32(ImVec4(0.88f, 0.97f, 1.00f, alpha)),
+						txt);
+
+					// thin horizontal line beneath the text
+					const float line_y  = ty + tsz.y + fs * 0.18f;
+					const float line_hw = tsz.x * 0.55f;
+					const float mid_x   = width * 0.5f;
+					const ImU32 line_col = ImGui::ColorConvertFloat4ToU32(
+						ImVec4(0.55f, 0.85f, 0.90f, alpha * 0.55f));
+					dl->AddLine(ImVec2(mid_x - line_hw, line_y),
+					            ImVec2(mid_x + line_hw, line_y),
+					            line_col, 1.5f);
+
+					ImGui::End();
+					ImGui::PopStyleVar(2);
+				}
+			}
+
 			float delta_t = static_cast<float>(now - last_frame_time);
 			last_frame_time = now;
 
@@ -975,6 +1226,23 @@ int App::run(void)
 			shader_prog->setUniform("uV_m", view);
 			shader_prog->setUniform("uP_m", projection_matrix);
 
+			// Frustum planes (Gribb-Hartmann) — normalized so dist = dot(n,p)+d
+			{
+				const glm::mat4 vp = projection_matrix * view;
+				auto row4 = [&vp](int i) {
+					return glm::vec4(vp[0][i], vp[1][i], vp[2][i], vp[3][i]);
+				};
+				auto norm_plane = [](const glm::vec4& p) {
+					return p / glm::length(glm::vec3(p));
+				};
+				frustum_planes[0] = norm_plane(row4(3) + row4(0)); // left
+				frustum_planes[1] = norm_plane(row4(3) - row4(0)); // right
+				frustum_planes[2] = norm_plane(row4(3) + row4(1)); // bottom
+				frustum_planes[3] = norm_plane(row4(3) - row4(1)); // top
+				frustum_planes[4] = norm_plane(row4(3) + row4(2)); // near
+				frustum_planes[5] = norm_plane(row4(3) - row4(2)); // far
+			}
+
 			shader_prog->setUniform("dir_light_direction", glm::normalize(glm::mat3(view) * dir_light.direction));
 			shader_prog->setUniform("dir_light_ambient", dir_light.ambient);
 			shader_prog->setUniform("dir_light_diffuse", dir_light.diffuse);
@@ -982,74 +1250,109 @@ int App::run(void)
 
 			const int uploaded_point_lights = static_cast<int>(std::min<size_t>(point_lights.size(), 16));
 			shader_prog->setUniform("num_point_lights", uploaded_point_lights);
-			for (int i = 0; i < uploaded_point_lights; i++) {
-				std::string idx = std::to_string(i);
-				shader_prog->setUniform("point_light_position[" + idx + "]", glm::vec3(view * glm::vec4(point_lights[i].position, 1.0f)));
-				shader_prog->setUniform("point_light_ambient[" + idx + "]", point_lights[i].ambient);
-				shader_prog->setUniform("point_light_diffuse[" + idx + "]", point_lights[i].diffuse);
-				shader_prog->setUniform("point_light_specular[" + idx + "]", point_lights[i].specular);
-				shader_prog->setUniform("point_light_radius[" + idx + "]", point_lights[i].radius);
+			if (uploaded_point_lights > 0) {
+				static std::vector<glm::vec3> light_positions;
+				static std::vector<glm::vec3> light_ambient;
+				static std::vector<glm::vec3> light_diffuse;
+				static std::vector<glm::vec3> light_specular;
+				static std::vector<GLfloat> light_radius;
+				light_positions.clear();
+				light_ambient.clear();
+				light_diffuse.clear();
+				light_specular.clear();
+				light_radius.clear();
+				light_positions.reserve(uploaded_point_lights);
+				light_ambient.reserve(uploaded_point_lights);
+				light_diffuse.reserve(uploaded_point_lights);
+				light_specular.reserve(uploaded_point_lights);
+				light_radius.reserve(uploaded_point_lights);
+
+				for (int i = 0; i < uploaded_point_lights; i++) {
+					light_positions.emplace_back(glm::vec3(view * glm::vec4(point_lights[i].position, 1.0f)));
+					light_ambient.emplace_back(point_lights[i].ambient);
+					light_diffuse.emplace_back(point_lights[i].diffuse);
+					light_specular.emplace_back(point_lights[i].specular);
+					light_radius.emplace_back(point_lights[i].radius);
+				}
+
+				shader_prog->setUniform("point_light_position[0]", light_positions);
+				shader_prog->setUniform("point_light_ambient[0]", light_ambient);
+				shader_prog->setUniform("point_light_diffuse[0]", light_diffuse);
+				shader_prog->setUniform("point_light_specular[0]", light_specular);
+				shader_prog->setUniform("point_light_radius[0]", light_radius);
 			}
 
 			if (!spot_lights.empty()) {
-				shader_prog->setUniform("spot_light_position", glm::vec3(view * glm::vec4(spot_lights[0].position, 1.0f)));
-				shader_prog->setUniform("spot_light_direction", glm::normalize(glm::mat3(view) * spot_lights[0].direction));
-				shader_prog->setUniform("spot_light_ambient", spot_lights[0].ambient);
-				shader_prog->setUniform("spot_light_diffuse", spot_lights[0].diffuse);
-				shader_prog->setUniform("spot_light_specular", spot_lights[0].specular);
-				shader_prog->setUniform("spot_light_cutoff", spot_lights[0].cutoff);
-				shader_prog->setUniform("spot_light_outer_cutoff", spot_lights[0].outer_cutoff);
+				const auto& sl = spot_lights[0];
+				shader_prog->setUniform("u_spot_active", 1);
+				shader_prog->setUniform("spot_light_position", glm::vec3(view * glm::vec4(sl.position, 1.0f)));
+				shader_prog->setUniform("spot_light_direction", glm::normalize(glm::mat3(view) * sl.direction));
+				shader_prog->setUniform("spot_light_ambient", sl.ambient);
+				shader_prog->setUniform("spot_light_diffuse", sl.diffuse);
+				shader_prog->setUniform("spot_light_specular", sl.specular);
+				shader_prog->setUniform("spot_light_cos_cutoff", std::cos(glm::radians(sl.cutoff)));
+				shader_prog->setUniform("spot_light_cos_outer_cutoff", std::cos(glm::radians(sl.outer_cutoff)));
 			}
 			else {
-				shader_prog->setUniform("spot_light_position", glm::vec3(0.0f));
-				shader_prog->setUniform("spot_light_direction", glm::vec3(0.0f, 0.0f, -1.0f));
-				shader_prog->setUniform("spot_light_ambient", glm::vec3(0.0f));
-				shader_prog->setUniform("spot_light_diffuse", glm::vec3(0.0f));
-				shader_prog->setUniform("spot_light_specular", glm::vec3(0.0f));
-				shader_prog->setUniform("spot_light_cutoff", 1.0f);
-				shader_prog->setUniform("spot_light_outer_cutoff", 2.0f);
+				shader_prog->setUniform("u_spot_active", 0);
 			}
 
 			{
-				std::vector<std::shared_ptr<Model>> transparent;
-				std::vector<std::shared_ptr<Model>> oit_orbs;
-				transparent.reserve(scene.size());
-				oit_orbs.reserve(2);
+				auto in_frustum = [&](const glm::vec3& c, float r) {
+					for (const auto& p : frustum_planes)
+						if (p.x*c.x + p.y*c.y + p.z*c.z + p.w < -r) return false;
+					return true;
+				};
+
+				// Reuse persistent vectors — no heap allocation per frame
+				render_opaque.clear();
+				render_transparent.clear();
+				render_oit_orbs.clear();
 
 				for (auto& [name, model_obj] : scene) {
+					if (!model_obj || model_obj->material_alpha <= DRAW_ALPHA_EPSILON)
+						continue;
+
 					if (!model_obj->is_transparent) {
-						model_obj->draw();
+						if (in_frustum(model_obj->getPosition(), model_obj->get_cull_radius()))
+							render_opaque.emplace_back(model_obj);
 					}
-					else if (model_obj == model || model_obj == inner_orb_model ||
-						     std::find(orb_layer_models.begin(), orb_layer_models.end(), model_obj) != orb_layer_models.end()) {
-						oit_orbs.emplace_back(model_obj);
+					else if (orb_model_set.count(model_obj.get())) {
+						render_oit_orbs.emplace_back(model_obj);
 					}
 					else {
-						transparent.emplace_back(model_obj);
+						if (in_frustum(model_obj->getPosition(), model_obj->get_cull_radius()))
+							render_transparent.emplace_back(model_obj);
 					}
 				}
 
-				if (!oit_orbs.empty()) {
-					draw_orb_oit(oit_orbs);
-				}
+				// Front-to-back: GPU Hi-Z discards occluded fragments before fragment shader
+				std::sort(render_opaque.begin(), render_opaque.end(),
+					[&](const std::shared_ptr<Model>& a, const std::shared_ptr<Model>& b) {
+						const glm::vec3 da = camera.Position - a->getPosition();
+						const glm::vec3 db = camera.Position - b->getPosition();
+						return glm::dot(da, da) < glm::dot(db, db);
+					});
 
-				std::sort(transparent.begin(), transparent.end(),
-					[&](std::shared_ptr<Model> const a, std::shared_ptr<Model> const b) {
-						const float da = glm::distance(camera.Position, a->getPosition());
-						const float db = glm::distance(camera.Position, b->getPosition());
-						if (std::abs(da - db) > 0.001f) {
-							return da > db;
-						}
+				for (auto& m : render_opaque)
+					m->draw();
+
+				if (!render_oit_orbs.empty())
+					draw_orb_oit(render_oit_orbs);
+
+				std::sort(render_transparent.begin(), render_transparent.end(),
+					[&](const std::shared_ptr<Model>& a, const std::shared_ptr<Model>& b) {
+						const glm::vec3 da = camera.Position - a->getPosition();
+						const glm::vec3 db = camera.Position - b->getPosition();
+						const float fda = glm::dot(da, da), fdb = glm::dot(db, db);
+						if (std::abs(fda - fdb) > 0.001f) return fda > fdb;
 						return glm::length(a->scale) > glm::length(b->scale);
 					});
 
 				glEnable(GL_BLEND);
 				glDepthMask(GL_FALSE);
-
-				for (auto& p : transparent) {
+				for (auto& p : render_transparent)
 					p->draw();
-				}
-
 				glDepthMask(GL_TRUE);
 				glDisable(GL_BLEND);
 			}
@@ -1060,13 +1363,14 @@ int App::run(void)
 			if (show_light_debug) {
 				draw_light_debug();
 			}
+			if (show_trigger_debug) {
+				draw_trigger_debug();
+			}
 
 			draw_particles();
 
-			if (show_imgui) {
-				ImGui::Render();
-				ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-			}
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 			glfwSwapBuffers(window);
 
@@ -1198,23 +1502,35 @@ void App::update_gameplay(float delta_t, double now)
     const float light_power = hub_powered ? 1.55f : 0.34f;
     const float top_light_power = hub_powered ? 2.05f : 0.48f;
 
+    // Indices 0-4: affected by reactor state (dim before, bright after)
+    // Index 5 (orb): always full intensity, small radius — the only constant light source
     const std::array<PointLight, 6> hub_light_profiles = {
         PointLight{ glm::vec3(  0.0f, 14.6f, -12.5f), glm::vec3(0.040f, 0.052f, 0.050f), glm::vec3(1.05f, 1.45f, 1.30f), glm::vec3(0.14f, 0.22f, 0.20f), 56.0f },
         PointLight{ glm::vec3(-21.5f,  4.8f, -12.5f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f },
         PointLight{ glm::vec3( 21.5f,  4.8f, -12.5f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f },
         PointLight{ glm::vec3(  0.0f,  4.8f,   9.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f },
         PointLight{ glm::vec3(  0.0f,  4.8f, -34.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f },
-        PointLight{ glm::vec3(  0.0f,  3.7f, -12.5f), glm::vec3(0.016f, 0.032f, 0.030f), glm::vec3(0.28f, 0.70f, 0.62f), glm::vec3(0.04f, 0.10f, 0.09f), 22.0f }
     };
 
     for (size_t i = 0; i < point_lights.size() && i < hub_light_profiles.size(); ++i) {
         const PointLight& profile = hub_light_profiles[i];
         const float power = i == 0 ? top_light_power : light_power;
         point_lights[i].position = profile.position;
-        point_lights[i].ambient = profile.ambient * power;
-        point_lights[i].diffuse = profile.diffuse * power;
+        point_lights[i].ambient  = profile.ambient  * power;
+        point_lights[i].diffuse  = profile.diffuse  * power;
         point_lights[i].specular = profile.specular * power;
-        point_lights[i].radius = profile.radius;
+        point_lights[i].radius   = profile.radius;
+    }
+
+    // Orb light — bright while reactors are off, fades out once hub is fully powered
+    constexpr size_t ORB_LIGHT = 5;
+    if (ORB_LIGHT < point_lights.size()) {
+        const float orb_power = hub_powered ? 0.0f : 1.0f;
+        point_lights[ORB_LIGHT].position = glm::vec3(0.0f, 3.7f, -12.5f);
+        point_lights[ORB_LIGHT].ambient  = glm::vec3(0.05f, 0.14f, 0.13f) * orb_power;
+        point_lights[ORB_LIGHT].diffuse  = glm::vec3(1.20f, 3.00f, 2.70f) * orb_power;
+        point_lights[ORB_LIGHT].specular = glm::vec3(0.30f, 0.70f, 0.60f) * orb_power;
+        point_lights[ORB_LIGHT].radius   = 14.0f;
     }
 
     const glm::vec3 lamp_dim(0.055f, 0.13f, 0.11f);
@@ -1243,13 +1559,13 @@ void App::update_gameplay(float delta_t, double now)
 		const float distance_to_player = glm::distance(camera.Position, enemy.model->pivot_position);
 		if (distance_to_player < 1.2f) {
 			player_health = std::max(0, player_health - 1);
-			hud_message = "Specimen contact detected.";
+			set_hud_message("Specimen contact detected.");
 		}
 	}
 
-	if (now - last_fire_particle_time > 0.08) {
+	if (now - last_fire_particle_time > 0.12) {
 		for (const auto& source : fire_sources) {
-			spawn_particles(source + glm::vec3(0.0f, 0.35f, 0.0f), 2);
+			spawn_particles(source + glm::vec3(0.0f, 0.35f, 0.0f), 1);
 		}
 		last_fire_particle_time = now;
 	}
@@ -1276,6 +1592,13 @@ void App::update_gameplay(float delta_t, double now)
 		hidden_door_wall->pivot_position.y = std::min(6.0f, hidden_door_wall->pivot_position.y + delta_t * 2.0f);
 		hidden_door_wall->collides = false;
 	}
+
+    for (auto& tz : trigger_zones) {
+        if (!tz.fired && glm::distance(camera.Position, tz.position) < tz.radius) {
+            tz.fired = true;
+            show_location_text(tz.message, tz.duration);
+        }
+    }
 }
 
 void App::update_player_motion(float delta_t)
@@ -1337,7 +1660,6 @@ void App::update_pit_state()
     if (player_on_ground && player_vertical_offset <= 0.02f && is_over_hub_pit() && !is_over_hub_walkway()) {
         player_on_ground = false;
         player_vertical_velocity = -0.25f;
-        hud_message = "Fall detected.";
     }
 
     if (camera.Position.y < DEATH_PIT_Y) {
@@ -1354,7 +1676,7 @@ void App::respawn_player(const std::string& message)
     view_bob_offset = 0.0f;
     player_on_ground = true;
     player_health = 100;
-    hud_message = message;
+    set_hud_message(message);
 }
 
 void App::activate_nearest_reactor()
@@ -1379,13 +1701,13 @@ void App::activate_nearest_reactor()
 		const float dist = glm::distance(camera.Position, hidden_door_btn->pivot_position);
 		if (dist < 2.4f) {
 			hidden_door_open = true;
-			hud_message = "Hidden passage unlocked.";
+			set_hud_message("Hidden passage unlocked.");
 			return;
 		}
 	}
 
 	if (!nearest || best_distance > 2.4f) {
-		hud_message = "No reactor button in range.";
+		set_hud_message("No reactor button in range.");
 		return;
 	}
 
@@ -1401,9 +1723,9 @@ void App::activate_nearest_reactor()
 
 	if (reactors_active >= static_cast<int>(reactors.size())) {
 		gate_unlocked = true;
-		hud_message = "Containment gate unlocked.";
+		set_hud_message("Containment gate unlocked.", 8.0f);
 	} else {
-		hud_message = "Reactor online.";
+		set_hud_message("Reactor online.");
 	}
 }
 
@@ -1432,7 +1754,7 @@ void App::toggle_all_reactors()
 		gate_model->material_alpha = 1.0f;
 	}
 
-	hud_message = turn_on ? "Dev: all reactors online." : "Dev: all reactors offline.";
+	set_hud_message(turn_on ? "Dev: all reactors online." : "Dev: all reactors offline.");
 }
 
 void App::fire_weapon()
@@ -1461,7 +1783,7 @@ void App::fire_weapon()
 	}
 
 	if (!hit_enemy) {
-		hud_message = "Shot missed.";
+		set_hud_message("Shot missed.");
 		spawn_particles(ray_origin + ray_dir * 2.0f, 4);
 		return;
 	}
@@ -1475,9 +1797,9 @@ void App::fire_weapon()
 		hit_enemy->model->material_alpha = 0.0f;
 		hit_enemy->model->is_transparent = true;
 		hit_enemy->model->pivot_position.y = -20.0f;
-		hud_message = "Specimen neutralized.";
+		set_hud_message("Specimen neutralized.");
 	} else {
-		hud_message = "Specimen hit.";
+		set_hud_message("Specimen hit.");
 	}
 }
 
@@ -1522,13 +1844,19 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
 		case GLFW_KEY_C:
 			if (action == GLFW_PRESS) {
 				this_inst->show_collision_debug = !this_inst->show_collision_debug;
-				this_inst->hud_message = this_inst->show_collision_debug ? "Collision debug enabled." : "Collision debug disabled.";
+				this_inst->set_hud_message(this_inst->show_collision_debug ? "Collision debug enabled." : "Collision debug disabled.");
 			}
 			break;
 		case GLFW_KEY_L:
 			if (action == GLFW_PRESS) {
 				this_inst->show_light_debug = !this_inst->show_light_debug;
-				this_inst->hud_message = this_inst->show_light_debug ? "Light debug enabled." : "Light debug disabled.";
+				this_inst->set_hud_message(this_inst->show_light_debug ? "Light debug enabled." : "Light debug disabled.");
+			}
+			break;
+		case GLFW_KEY_T:
+			if (action == GLFW_PRESS) {
+				this_inst->show_trigger_debug = !this_inst->show_trigger_debug;
+				this_inst->set_hud_message(this_inst->show_trigger_debug ? "Trigger debug enabled." : "Trigger debug disabled.");
 			}
 			break;
 		case GLFW_KEY_V:
@@ -1545,7 +1873,7 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
 		case GLFW_KEY_N:
 			if (action == GLFW_PRESS) {
 				this_inst->collisions_enabled = !this_inst->collisions_enabled;
-				this_inst->hud_message = this_inst->collisions_enabled ? "Collision enabled." : "Noclip enabled.";
+				this_inst->set_hud_message(this_inst->collisions_enabled ? "Collision enabled." : "Noclip enabled.");
 				if (this_inst->collisions_enabled) {
 					this_inst->player_vertical_offset = std::max(0.0f, this_inst->camera.Position.y - App::PLAYER_EYE_HEIGHT);
 					this_inst->player_vertical_velocity = 0.0f;
@@ -1778,8 +2106,7 @@ void App::apply_collisions(float delta_t) {
     const float CAMERA_RADIUS = 0.4f;
     bool supported = player_vertical_offset <= 0.02f && (!is_over_hub_pit() || is_over_hub_walkway());
 
-    for (auto& [name, obj] : scene) {
-        if (!obj->collides) continue;
+    for (auto& obj : scene_colliders) {
         if (try_resolve_camera_top_collision(obj, CAMERA_RADIUS)) {
             supported = true;
             continue;
@@ -1935,6 +2262,61 @@ void App::draw_light_debug()
     shader_prog->setUniform("u_debug_collision", 0);
 }
 
+void App::draw_trigger_debug()
+{
+    if (!light_debug_marker) return;
+
+    shader_prog->use();
+    shader_prog->setUniform("u_debug_collision", 1);
+    glEnable(GL_BLEND);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_DEPTH_TEST);
+
+    for (const auto& tz : trigger_zones) {
+        // green = waiting, grey = already fired
+        const glm::vec4 col = tz.fired
+            ? glm::vec4(0.5f, 0.5f, 0.5f, 0.35f)
+            : glm::vec4(0.20f, 1.00f, 0.35f, 0.55f);
+        shader_prog->setUniform("u_debug_color", col);
+        light_debug_marker->pivot_position = tz.position;
+        light_debug_marker->scale = glm::vec3(tz.radius);
+        light_debug_marker->draw();
+    }
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    shader_prog->setUniform("u_debug_collision", 0);
+
+    // ImGui labels projected to screen space
+    const glm::mat4 vp = projection_matrix * view_matrix;
+    for (const auto& tz : trigger_zones) {
+        const glm::vec4 clip = vp * glm::vec4(tz.position, 1.0f);
+        if (clip.w <= 0.0f) continue;
+        const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+        if (std::abs(ndc.x) > 1.0f || std::abs(ndc.y) > 1.0f) continue;
+        const float sx = (ndc.x * 0.5f + 0.5f) * width;
+        const float sy = (1.0f - (ndc.y * 0.5f + 0.5f)) * height;
+
+        ImGui::SetNextWindowPos(ImVec2(sx, sy), ImGuiCond_Always, ImVec2(0.5f, 1.0f));
+        ImGui::SetNextWindowBgAlpha(0.55f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 2.0f));
+        ImGui::Begin(("##tz_" + tz.message).c_str(), nullptr,
+            ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+            ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
+            ImGuiWindowFlags_NoFocusOnAppearing);
+        const ImVec4 tcol = tz.fired
+            ? ImVec4(0.55f, 0.55f, 0.55f, 1.0f)
+            : ImVec4(0.30f, 1.00f, 0.45f, 1.0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, tcol);
+        ImGui::Text("%s  r=%.1f  %s", tz.message.c_str(), tz.radius, tz.fired ? "[fired]" : "");
+        ImGui::PopStyleColor();
+        ImGui::End();
+        ImGui::PopStyleVar();
+    }
+}
+
 void App::draw_orb_oit(const std::vector<std::shared_ptr<Model>>& oit_models)
 {
     if (oit_models.empty() || oit_fbo == 0 || oit_composite_prog == nullptr) {
@@ -1968,7 +2350,7 @@ void App::draw_orb_oit(const std::vector<std::shared_ptr<Model>>& oit_models)
     shader_prog->use();
     shader_prog->setUniform("u_oit_pass", 1);
     for (const auto& orb : oit_models) {
-        if (orb) {
+        if (orb && orb->material_alpha > DRAW_ALPHA_EPSILON) {
             orb->draw();
         }
     }
@@ -1996,6 +2378,10 @@ void App::draw_orb_oit(const std::vector<std::shared_ptr<Model>>& oit_models)
 }
 
 void App::spawn_particles(const glm::vec3& position, int count) {
+    if (particles.size() >= MAX_PARTICLES) {
+        return;
+    }
+
     static std::mt19937 rng{ std::random_device{}() };
     std::uniform_real_distribution<float> angle_dist(0.0f, glm::two_pi<float>());
     std::uniform_real_distribution<float> speed_dist(1.5f, 4.0f);
@@ -2003,7 +2389,10 @@ void App::spawn_particles(const glm::vec3& position, int count) {
     std::uniform_real_distribution<float> life_dist(0.8f, 1.8f);
     std::uniform_real_distribution<float> scale_dist(0.05f, 0.2f);
 
-    for (int i = 0; i < count; i++) {
+    const size_t free_slots = MAX_PARTICLES - particles.size();
+    const int spawn_count = std::min<int>(count, static_cast<int>(free_slots));
+
+    for (int i = 0; i < spawn_count; i++) {
         Particle p;
         p.position = position;
         p.age      = 0.0f;
