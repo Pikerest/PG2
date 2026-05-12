@@ -327,7 +327,14 @@ void App::init_assets(void) {
 
     spot_lights.clear();
 
-    auto tex_box = std::make_shared<Texture>("textures/box.png");
+    auto tex_box             = std::make_shared<Texture>("textures/box.png");
+    auto tex_metal_plate     = std::make_shared<Texture>("textures/metal_plate.jpg");
+    auto tex_metal_plate_02  = std::make_shared<Texture>("textures/metal_plate_02.jpg");
+    auto tex_rusty_metal     = std::make_shared<Texture>("textures/rusty_metal.jpg");
+    auto tex_corrugated_iron = std::make_shared<Texture>("textures/corrugated_iron.jpg");
+    auto tex_concrete_wall   = std::make_shared<Texture>("textures/concrete_wall.jpg");
+    auto tex_metal_panel     = std::make_shared<Texture>("textures/metal_panel.jpg");
+    auto tex_sci_floor       = std::make_shared<Texture>("textures/sci_floor.jpg");
     auto tex_floor = std::make_shared<Texture>(glm::vec3(0.30f, 0.32f, 0.30f));
     auto tex_wall = std::make_shared<Texture>(glm::vec3(0.22f, 0.25f, 0.28f));
     auto tex_dark = std::make_shared<Texture>(glm::vec3(0.08f, 0.09f, 0.10f));
@@ -852,30 +859,30 @@ void App::init_assets(void) {
 
     // === Left wing: main corridor → T-junction → Reactor 1 (south) + Reactor 2 (north) ===
     // T-junction room (x=-44 to -57, z=-34 to -2)
-    add_box("left_junc_north_wall",  glm::vec3(-50.5f, 2.0f, -34.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
-    add_box("left_junc_south_wall",  glm::vec3(-50.5f, 2.0f,  -1.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
-    // East wall — opening z=-14.861 to -10.139, height 5.2 to cover full hex
-    add_box("left_junc_east_n", glm::vec3(-44.235f, 2.0f, -24.430f), glm::vec3(0.8f, 4.0f, 19.139f), tex_wall, true, 1.5f);
-    add_box("left_junc_east_s", glm::vec3(-44.235f, 2.0f,  -6.070f), glm::vec3(0.8f, 4.0f,  8.139f), tex_wall, true, 1.5f);
+    add_box("left_junc_north_wall",  glm::vec3(-50.5f, 2.0f, -34.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_concrete_wall, true, 1.5f);
+    add_box("left_junc_south_wall",  glm::vec3(-50.5f, 2.0f,  -1.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_concrete_wall, true, 1.5f);
+    // East wall — opening z=-14.861 to -10.139
+    add_box("left_junc_east_n", glm::vec3(-44.235f, 2.0f, -24.430f), glm::vec3(0.8f, 4.0f, 19.139f), tex_concrete_wall, true, 1.5f);
+    add_box("left_junc_east_s", glm::vec3(-44.235f, 2.0f,  -6.070f), glm::vec3(0.8f, 4.0f,  8.139f), tex_concrete_wall, true, 1.5f);
     // Short hex cap bridging tunnel end to junction wall — covers corner gaps naturally
     constexpr float junc_cap_len = 1.6f;
     add_hex_tunnel_shell("hub_tunnel_cap_west",
         glm::vec3(-hub_portal_panel_radius - west_tunnel_len - junc_cap_len * 0.5f, hub_tunnel_y, hub_center.z),
         junc_cap_len, 0.0f);
     // West wall of junction — two gaps: R2 at z=-32 to -26, R1 at z=-8 to -2
-    add_box("left_junc_west_n",      glm::vec3(-57.0f, 2.0f, -33.0f), glm::vec3(0.8f, 4.0f,  2.0f), tex_wall, true, 1.5f);
-    add_box("left_junc_west_mid",    glm::vec3(-57.0f, 2.0f, -17.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_wall, true, 1.5f);
+    add_box("left_junc_west_n",      glm::vec3(-57.0f, 2.0f, -33.0f), glm::vec3(0.8f, 4.0f,  2.0f), tex_concrete_wall, true, 1.5f);
+    add_box("left_junc_west_mid",    glm::vec3(-57.0f, 2.0f, -17.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_concrete_wall, true, 1.5f);
 
-    // Reactor 1 corridor (south arm, z=-8 to -2, x=-57 to -67)
-    add_box("r1_corr_north_wall",    glm::vec3(-62.0f, 2.0f,  -8.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
-    add_box("r1_corr_south_wall",    glm::vec3(-62.0f, 2.0f,  -1.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    // Reactor 1 corridor — extended to x=-67.5 to meet entry wall flush
+    add_box("r1_corr_north_wall",    glm::vec3(-62.25f, 2.0f,  -8.5f), glm::vec3(10.5f, 4.0f, 0.8f), tex_concrete_wall, true, 1.5f);
+    add_box("r1_corr_south_wall",    glm::vec3(-62.25f, 2.0f,  -1.5f), glm::vec3(10.5f, 4.0f, 0.8f), tex_concrete_wall, true, 1.5f);
 
-    // Reactor 1 room (x=-67 to -87, z=-14 to 8) — entry from east at z=-8 to -2
-    add_box("reactor1_room_west",    glm::vec3(-87.5f, 2.0f,  -3.0f), glm::vec3(0.8f, 4.0f, 22.0f), tex_wall, true, 1.5f);
-    add_box("reactor1_room_north",   glm::vec3(-77.0f, 2.0f, -14.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
-    add_box("reactor1_room_south",   glm::vec3(-77.0f, 2.0f,   8.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
-    add_box("reactor1_entry_n",      glm::vec3(-67.5f, 2.0f, -11.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
-    add_box("reactor1_entry_s",      glm::vec3(-67.5f, 2.0f,   5.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
+    // Reactor 1 room — entry opening aligned with corridor (z=-8.5 to -1.5, 7 units)
+    add_box("reactor1_room_west",    glm::vec3(-87.5f, 2.0f,  -3.0f), glm::vec3(0.8f, 4.0f, 22.0f), tex_concrete_wall, true, 1.5f);
+    add_box("reactor1_room_north",   glm::vec3(-77.0f, 2.0f, -14.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_concrete_wall, true, 1.5f);
+    add_box("reactor1_room_south",   glm::vec3(-77.0f, 2.0f,   8.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_concrete_wall, true, 1.5f);
+    add_box("reactor1_entry_n",      glm::vec3(-67.5f, 2.0f, -11.75f), glm::vec3(0.8f, 4.0f,  5.5f), tex_concrete_wall, true, 1.5f);
+    add_box("reactor1_entry_s",      glm::vec3(-67.5f, 2.0f,   3.25f), glm::vec3(0.8f, 4.0f,  9.5f), tex_concrete_wall, true, 1.5f);
     // Reactor 1 room — ceiling strip lights
     add_lamp("r1_ceil_lamp_n",     glm::vec3(-77.0f, 3.88f,  -9.0f), glm::vec3(5.5f, 0.12f, 0.55f));
     add_lamp("r1_ceil_lamp_s",     glm::vec3(-77.0f, 3.88f,   3.0f), glm::vec3(5.5f, 0.12f, 0.55f));
@@ -893,16 +900,61 @@ void App::init_assets(void) {
     // North wall of junction — the blank far wall (inside room, lamp faces south)
     add_lamp("wing_north_wall_lamp", glm::vec3(-50.5f, 2.85f, -33.85f), glm::vec3(8.0f, 0.22f, 0.12f));
 
+    // === T-junction props ===
+    auto tex_warning = std::make_shared<Texture>(glm::vec3(0.78f, 0.64f, 0.04f));
+
+    // Floor warning stripes marking the east-west corridor crossing
+    add_box("junc_stripe_n", glm::vec3(-50.5f, 0.02f, -15.0f), glm::vec3(12.5f, 0.04f, 0.35f), tex_warning, false);
+    add_box("junc_stripe_s", glm::vec3(-50.5f, 0.02f, -10.5f), glm::vec3(12.5f, 0.04f, 0.35f), tex_warning, false);
+
+    // Pipes along west wall — split to avoid doorway openings (R2 gap z=-32 to -26, R1 gap z=-8 to -2)
+    add_box("junc_pipe_lo_n",   glm::vec3(-56.7f, 0.55f, -33.0f), glm::vec3(0.18f, 0.18f,  2.0f), tex_rusty_metal, false, 2.0f);
+    add_box("junc_pipe_lo_mid", glm::vec3(-56.7f, 0.55f, -17.0f), glm::vec3(0.18f, 0.18f, 18.0f), tex_rusty_metal, false, 2.0f);
+    add_box("junc_pipe_hi_n",   glm::vec3(-56.7f, 2.30f, -33.0f), glm::vec3(0.18f, 0.18f,  2.0f), tex_rusty_metal, false, 2.0f);
+    add_box("junc_pipe_hi_mid", glm::vec3(-56.7f, 2.30f, -17.0f), glm::vec3(0.18f, 0.18f, 18.0f), tex_rusty_metal, false, 2.0f);
+    // Pipe brackets only on solid wall segments
+    add_box("junc_pipe_brk1", glm::vec3(-56.5f, 1.40f, -25.0f), glm::vec3(0.35f, 2.10f, 0.22f), tex_dark, false, 1.5f);
+    add_box("junc_pipe_brk2", glm::vec3(-56.5f, 1.40f, -17.0f), glm::vec3(0.35f, 2.10f, 0.22f), tex_dark, false, 1.5f);
+    add_box("junc_pipe_brk3", glm::vec3(-56.5f, 1.40f,  -9.5f), glm::vec3(0.35f, 2.10f, 0.22f), tex_dark, false, 1.5f);
+
+    // Central console station — OBJ models against west wall (z=-24 to -17)
+    auto add_obj = [&](const std::string& name, const std::string& path,
+                       glm::vec3 pos, glm::vec3 euler, glm::vec3 sc,
+                       std::shared_ptr<Texture> tex) {
+        auto m = std::make_shared<Model>("objects/" + path, shader_prog, tex);
+        m->pivot_position = pos;
+        m->eulerAngles    = euler;
+        m->scale          = sc;
+        scene[name] = m;
+        return m;
+    };
+
+    add_obj("junc_computer",      "computer-system.obj",  glm::vec3(-56.0f, 0.0f, -22.0f), glm::vec3(0,  90, 0), glm::vec3(2.10f), tex_metal_plate_02);
+    add_obj("junc_screen",        "computer-screen.obj",  glm::vec3(-56.0f, 0.0f, -19.5f), glm::vec3(0,  90, 0), glm::vec3(2.10f), tex_terminal);
+    add_obj("junc_table",         "table-large.obj",      glm::vec3(-55.0f, 0.0f, -17.0f), glm::vec3(0,   0, 0), glm::vec3(1.95f), tex_metal_plate);
+    add_obj("junc_chair_1",       "chair.obj",            glm::vec3(-53.0f, 0.0f, -19.5f), glm::vec3(0, 180, 0), glm::vec3(1.80f), tex_dark);
+    add_obj("junc_chair_2",       "chair.obj",            glm::vec3(-53.0f, 0.0f, -22.0f), glm::vec3(0, 180, 0), glm::vec3(1.80f), tex_dark);
+
+    // Containers NE corner — against east wall
+    add_obj("junc_container_ne1", "container-tall.obj",   glm::vec3(-45.0f, 0.0f, -27.0f), glm::vec3(0,   0, 0), glm::vec3(1.95f), tex_corrugated_iron);
+    add_obj("junc_container_ne2", "container.obj",        glm::vec3(-45.0f, 0.0f, -24.0f), glm::vec3(0,  90, 0), glm::vec3(1.80f), tex_metal_plate_02);
+    add_obj("junc_box_ne",        "box-large.obj",        glm::vec3(-46.0f, 0.0f, -22.0f), glm::vec3(0,  45, 0), glm::vec3(1.65f), tex_box);
+
+    // Containers SE corner — against east wall
+    add_obj("junc_container_se1", "container.obj",        glm::vec3(-45.0f, 0.0f,  -6.5f), glm::vec3(0,   0, 0), glm::vec3(1.80f), tex_corrugated_iron);
+    add_obj("junc_box_se1",       "box-large.obj",        glm::vec3(-45.5f, 0.0f,  -4.5f), glm::vec3(0,  20, 0), glm::vec3(1.50f), tex_box);
+    add_obj("junc_box_se2",       "box-small.obj",        glm::vec3(-46.5f, 0.0f,  -3.5f), glm::vec3(0, -15, 0), glm::vec3(1.65f), tex_box);
+
     // Reactor 2 corridor (north arm, z=-32 to -26, x=-57 to -67)
-    add_box("r2_corr_north_wall",    glm::vec3(-62.0f, 2.0f, -32.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
-    add_box("r2_corr_south_wall",    glm::vec3(-62.0f, 2.0f, -25.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    add_box("r2_corr_north_wall",    glm::vec3(-62.0f, 2.0f, -32.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_metal_panel, true, 1.5f);
+    add_box("r2_corr_south_wall",    glm::vec3(-62.0f, 2.0f, -25.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_metal_panel, true, 1.5f);
 
     // Reactor 2 room (x=-67 to -87, z=-38 to -20) — entry from east at z=-32 to -26
-    add_box("reactor2_room_west",    glm::vec3(-87.5f, 2.0f, -29.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_wall, true, 1.5f);
-    add_box("reactor2_room_north",   glm::vec3(-77.0f, 2.0f, -38.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
-    add_box("reactor2_room_south",   glm::vec3(-77.0f, 2.0f, -19.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
-    add_box("reactor2_entry_n",      glm::vec3(-67.5f, 2.0f, -35.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
-    add_box("reactor2_entry_s",      glm::vec3(-67.5f, 2.0f, -23.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
+    add_box("reactor2_room_west",    glm::vec3(-87.5f, 2.0f, -29.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_metal_panel, true, 1.5f);
+    add_box("reactor2_room_north",   glm::vec3(-77.0f, 2.0f, -38.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_metal_panel, true, 1.5f);
+    add_box("reactor2_room_south",   glm::vec3(-77.0f, 2.0f, -19.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_metal_panel, true, 1.5f);
+    add_box("reactor2_entry_n",      glm::vec3(-67.5f, 2.0f, -35.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_metal_panel, true, 1.5f);
+    add_box("reactor2_entry_s",      glm::vec3(-67.5f, 2.0f, -23.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_metal_panel, true, 1.5f);
     // Reactor 2 room — ceiling strip lights (mirrored from R1, offset z by -26)
     add_lamp("r2_ceil_lamp_n",     glm::vec3(-77.0f, 3.88f, -35.0f), glm::vec3(5.5f, 0.12f, 0.55f));
     add_lamp("r2_ceil_lamp_s",     glm::vec3(-77.0f, 3.88f, -23.0f), glm::vec3(5.5f, 0.12f, 0.55f));
@@ -911,12 +963,45 @@ void App::init_assets(void) {
     add_lamp("r2_wall_lamp_north", glm::vec3(-77.0f, 2.85f, -38.1f), glm::vec3(12.0f, 0.22f, 0.12f));
     add_lamp("r2_wall_lamp_south", glm::vec3(-77.0f, 2.85f, -19.9f), glm::vec3(12.0f, 0.22f, 0.12f));
 
-    // === Left wing ceilings — y=4.0, matching floor footprints ===
-    add_box("left_junc_ceiling",   glm::vec3(-50.5f, 4.05f, -18.0f), glm::vec3(13.0f, 0.1f, 32.0f), tex_wall, false, 1.5f);
-    add_box("r1_corr_ceiling",     glm::vec3(-62.0f, 4.05f,  -5.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_wall, false, 1.5f);
-    add_box("reactor1_ceiling",    glm::vec3(-77.0f, 4.05f,  -3.0f), glm::vec3(20.0f, 0.1f, 22.0f), tex_wall, false, 1.5f);
-    add_box("r2_corr_ceiling",     glm::vec3(-62.0f, 4.05f, -29.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_wall, false, 1.5f);
-    add_box("reactor2_ceiling",    glm::vec3(-77.0f, 4.05f, -29.0f), glm::vec3(20.0f, 0.1f, 18.0f), tex_wall, false, 1.5f);
+    // === Left wing ceilings ===
+    add_box("left_junc_ceiling",   glm::vec3(-50.5f, 4.05f, -18.0f), glm::vec3(13.0f, 0.1f, 32.0f), tex_metal_plate,  false, 1.5f);
+    add_box("r1_corr_ceiling",     glm::vec3(-62.0f, 4.05f,  -5.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_metal_plate,  false, 1.5f);
+    add_box("reactor1_ceiling",    glm::vec3(-77.0f, 4.05f,  -3.0f), glm::vec3(20.0f, 0.1f, 22.0f), tex_metal_plate,  false, 1.5f);
+    add_box("r2_corr_ceiling",     glm::vec3(-62.0f, 4.05f, -29.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_metal_panel,  false, 1.5f);
+    add_box("reactor2_ceiling",    glm::vec3(-77.0f, 4.05f, -29.0f), glm::vec3(20.0f, 0.1f, 18.0f), tex_metal_panel,  false, 1.5f);
+
+    // === Reactor 1 room furniture — industrial lab with machines and server racks ===
+    // (x=-67 to -87, z=-14 to +8, reactor at (-77,0.8,-3), button at (-71,0.55,-3))
+    // Server racks against west wall
+    add_obj("r1_server_a",   "computer-system.obj", glm::vec3(-86.5f, 0.0f, -10.0f), glm::vec3(0,  90, 0), glm::vec3(2.2f), tex_metal_panel);
+    add_obj("r1_server_b",   "computer-system.obj", glm::vec3(-86.5f, 0.0f,  -7.0f), glm::vec3(0,  90, 0), glm::vec3(2.2f), tex_metal_panel);
+    add_obj("r1_screen",     "screen-flat.obj",     glm::vec3(-86.5f, 0.0f,  -4.0f), glm::vec3(0,  90, 0), glm::vec3(2.0f), tex_terminal);
+    // Work table + chair in SE corner (clear of reactor/button)
+    add_obj("r1_table",      "table.obj",           glm::vec3(-73.0f, 0.0f,   5.5f), glm::vec3(0,   0, 0), glm::vec3(2.0f), tex_metal_plate);
+    add_obj("r1_chair_a",    "chair.obj",           glm::vec3(-70.5f, 0.0f,   5.5f), glm::vec3(0, 180, 0), glm::vec3(1.8f), tex_dark);
+    // Industrial machine in NW corner
+    add_obj("r1_machine",    "machine.obj",         glm::vec3(-85.5f, 0.0f, -12.0f), glm::vec3(0,   0, 0), glm::vec3(2.0f), tex_corrugated_iron);
+    // Containers along north wall
+    add_obj("r1_cont_a",     "container.obj",       glm::vec3(-82.0f, 0.0f, -12.5f), glm::vec3(0,  90, 0), glm::vec3(1.8f), tex_corrugated_iron);
+    add_obj("r1_cont_b",     "container.obj",       glm::vec3(-79.0f, 0.0f, -12.5f), glm::vec3(0,  90, 0), glm::vec3(1.8f), tex_metal_plate_02);
+    // Hopper in south corner (away from button)
+    add_obj("r1_hopper",     "hopper-square.obj",   glm::vec3(-85.0f, 0.0f,   6.5f), glm::vec3(0,   0, 0), glm::vec3(2.0f), tex_rusty_metal);
+
+    // === Reactor 2 room furniture — monitoring/control room style ===
+    // (x=-67 to -87, z=-38 to -20, reactor at (-77,0.8,-29), button at (-71,0.55,-29))
+    // Wide display wall along west wall (monitoring station)
+    add_obj("r2_screen_a",   "screen-flat.obj",     glm::vec3(-86.5f, 0.0f, -32.0f), glm::vec3(0,  90, 0), glm::vec3(2.2f), tex_terminal);
+    add_obj("r2_screen_b",   "screen-flat.obj",     glm::vec3(-86.5f, 0.0f, -28.0f), glm::vec3(0,  90, 0), glm::vec3(2.2f), tex_terminal);
+    add_obj("r2_computer",   "computer.obj",        glm::vec3(-86.5f, 0.0f, -25.0f), glm::vec3(0,  90, 0), glm::vec3(2.0f), tex_metal_panel);
+    // Central monitoring table with two chairs
+    add_obj("r2_table",      "table-large.obj",     glm::vec3(-79.0f, 0.0f, -29.0f), glm::vec3(0,   0, 0), glm::vec3(2.0f), tex_sci_floor);
+    add_obj("r2_chair_a",    "chair.obj",           glm::vec3(-76.0f, 0.0f, -27.5f), glm::vec3(0, 135, 0), glm::vec3(1.8f), tex_dark);
+    add_obj("r2_chair_b",    "chair.obj",           glm::vec3(-76.0f, 0.0f, -30.5f), glm::vec3(0, 225, 0), glm::vec3(1.8f), tex_dark);
+    // Storage boxes in NE corner (near north wall)
+    add_obj("r2_box_a",      "box-large.obj",       glm::vec3(-70.0f, 0.0f, -36.5f), glm::vec3(0,  20, 0), glm::vec3(1.8f), tex_box);
+    add_obj("r2_box_b",      "box-small.obj",       glm::vec3(-68.5f, 0.0f, -35.0f), glm::vec3(0, -30, 0), glm::vec3(1.6f), tex_box);
+    // Industrial container against south wall
+    add_obj("r2_cont",       "container-tall.obj",  glm::vec3(-84.0f, 0.0f, -21.5f), glm::vec3(0,   0, 0), glm::vec3(2.0f), tex_metal_plate_02);
 
     // === Right wing: east corridor → large warehouse → Reactor 3 behind hidden door ===
     // East corridor (x=25 to 45, z=-17.5 to -7.5)
