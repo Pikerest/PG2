@@ -82,6 +82,7 @@ private:
         int health{3};
         float bob_offset{0.0f};
         bool alive{true};
+        float y_base{0.8f};
     };
 
     bool show_imgui{true};

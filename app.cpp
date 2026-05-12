@@ -1092,7 +1092,25 @@ void App::init_assets(void) {
     Enemy e2{ add_box("enemy_02", glm::vec3(-50.0f, 0.8f, -12.5f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 3, 1.7f };
     Enemy e3{ add_box("enemy_03", glm::vec3( 60.0f, 0.8f, -20.0f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 3, 3.4f };
     Enemy e4{ add_box("enemy_04", glm::vec3(  0.0f, 0.8f, -28.0f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 4, 5.1f };
-    enemies = { e1, e2, e3, e4 };
+    // Reactor enemies — skeleton OBJ model
+    auto make_reactor_enemy = [&](const std::string& name, glm::vec3 pos, float bob_off) -> Enemy {
+        auto m = std::make_shared<Model>("objects/skeleton.obj", shader_prog, tex_enemy);
+        m->pivot_position = pos;
+        m->scale = glm::vec3(0.525f); // ~5 units tall → ~2.6 game units
+        m->two_sided_lighting = true;
+        m->bounding_radius = m->get_cull_radius(); // set hit sphere to actual world-space size
+        scene[name] = m;
+        Enemy e{ m, 3, bob_off };
+        e.y_base = 0.0f;
+        return e;
+    };
+    // Reactor 1 room — 2 enemies (clear of reactor at -77,-3 and button at -71,-3)
+    Enemy e5 = make_reactor_enemy("enemy_05", glm::vec3(-82.0f, 0.0f, -10.0f), 0.8f);
+    Enemy e6 = make_reactor_enemy("enemy_06", glm::vec3(-81.0f, 0.0f,   4.5f), 2.5f);
+    // Reactor 2 room — 2 enemies (clear of reactor at -77,-29 and button at -71,-29)
+    Enemy e7 = make_reactor_enemy("enemy_07", glm::vec3(-82.0f, 0.0f, -35.0f), 4.2f);
+    Enemy e8 = make_reactor_enemy("enemy_08", glm::vec3(-80.0f, 0.0f, -22.5f), 6.0f);
+    enemies = { e1, e2, e3, e4, e5, e6, e7, e8 };
 
     model = add_box("levitating_orb", glm::vec3(0.0f, 3.7f, -12.5f), glm::vec3(2.6f), tex_terminal, false, 1.0f, true, 0.72f);
     model->emissive_color = glm::vec3(0.02f, 0.09f, 0.08f);
@@ -1723,7 +1741,7 @@ void App::update_gameplay(float delta_t, double now)
 		}
 
 		const float bob = std::sin(static_cast<float>(now) * 2.2f + enemy.bob_offset) * 0.15f;
-		enemy.model->pivot_position.y = 0.8f + bob;
+		enemy.model->pivot_position.y = enemy.y_base + bob;
 		enemy.model->eulerAngles.y += delta_t * 40.0f;
 
 		const float distance_to_player = glm::distance(camera.Position, enemy.model->pivot_position);
