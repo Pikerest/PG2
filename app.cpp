@@ -340,6 +340,7 @@ void App::init_assets(void) {
     auto tex_dark = std::make_shared<Texture>(glm::vec3(0.08f, 0.09f, 0.10f));
     auto tex_terminal = std::make_shared<Texture>(glm::vec3(0.12f, 0.45f, 0.55f));
     auto tex_enemy = std::make_shared<Texture>(glm::vec3(0.55f, 0.18f, 0.16f));
+    auto tex_orc   = std::make_shared<Texture>("textures/orc_atlas.png");
     auto tex_catwalk = std::make_shared<Texture>("textures/catwalk_diamond_plate.png");
     auto tex_octagon_plate = std::make_shared<Texture>("textures/octagon_teardrop_plate.png");
     auto tex_rail = std::make_shared<Texture>(glm::vec3(0.68f, 0.82f, 0.74f));
@@ -1092,25 +1093,32 @@ void App::init_assets(void) {
     Enemy e2{ add_box("enemy_02", glm::vec3(-50.0f, 0.8f, -12.5f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 3, 1.7f };
     Enemy e3{ add_box("enemy_03", glm::vec3( 60.0f, 0.8f, -20.0f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 3, 3.4f };
     Enemy e4{ add_box("enemy_04", glm::vec3(  0.0f, 0.8f, -28.0f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 4, 5.1f };
-    // Reactor enemies — skeleton OBJ model
+    // Reactor enemies — orc OBJ model (centered at Y=0, feet at Y≈-14.94)
     auto make_reactor_enemy = [&](const std::string& name, glm::vec3 pos, float bob_off) -> Enemy {
-        auto m = std::make_shared<Model>("objects/skeleton.obj", shader_prog, tex_enemy);
+        auto m = std::make_shared<Model>("objects/orc_solid.obj", shader_prog, tex_orc);
         m->pivot_position = pos;
-        m->scale = glm::vec3(0.525f); // ~5 units tall → ~2.6 game units
+        m->scale = glm::vec3(74.0f); // orc ~0.035 units tall → ~2.6 game units
         m->two_sided_lighting = true;
-        m->bounding_radius = m->get_cull_radius(); // set hit sphere to actual world-space size
+        m->bounding_radius = m->get_cull_radius();
         scene[name] = m;
         Enemy e{ m, 3, bob_off };
-        e.y_base = 0.0f;
+        e.y_base = 0.22f; // feet at Y=-0.003 * 74 ≈ 0.22
         return e;
     };
-    // Reactor 1 room — 2 enemies (clear of reactor at -77,-3 and button at -71,-3)
-    Enemy e5 = make_reactor_enemy("enemy_05", glm::vec3(-82.0f, 0.0f, -10.0f), 0.8f);
-    Enemy e6 = make_reactor_enemy("enemy_06", glm::vec3(-81.0f, 0.0f,   4.5f), 2.5f);
-    // Reactor 2 room — 2 enemies (clear of reactor at -77,-29 and button at -71,-29)
-    Enemy e7 = make_reactor_enemy("enemy_07", glm::vec3(-82.0f, 0.0f, -35.0f), 4.2f);
-    Enemy e8 = make_reactor_enemy("enemy_08", glm::vec3(-80.0f, 0.0f, -22.5f), 6.0f);
-    enemies = { e1, e2, e3, e4, e5, e6, e7, e8 };
+    // Reactor 1 room — 4 enemies
+    Enemy e5  = make_reactor_enemy("enemy_05", glm::vec3(-82.0f, 0.0f, -10.0f), 0.8f);
+    Enemy e6  = make_reactor_enemy("enemy_06", glm::vec3(-81.0f, 0.0f,   4.5f), 2.5f);
+    Enemy e9  = make_reactor_enemy("enemy_09", glm::vec3(-70.0f, 0.0f, -11.5f), 1.4f);
+    Enemy e10 = make_reactor_enemy("enemy_10", glm::vec3(-72.0f, 0.0f,   5.5f), 3.1f);
+    // Reactor 2 room — 4 enemies
+    Enemy e7  = make_reactor_enemy("enemy_07", glm::vec3(-82.0f, 0.0f, -35.0f), 4.2f);
+    Enemy e8  = make_reactor_enemy("enemy_08", glm::vec3(-80.0f, 0.0f, -22.5f), 6.0f);
+    Enemy e11 = make_reactor_enemy("enemy_11", glm::vec3(-70.0f, 0.0f, -36.5f), 0.5f);
+    Enemy e12 = make_reactor_enemy("enemy_12", glm::vec3(-72.0f, 0.0f, -21.5f), 2.2f);
+    // T-junction — 2 enemies
+    Enemy e13 = make_reactor_enemy("enemy_13", glm::vec3(-52.0f, 0.0f, -28.5f), 3.8f);
+    Enemy e14 = make_reactor_enemy("enemy_14", glm::vec3(-52.0f, 0.0f,  -6.5f), 5.5f);
+    enemies = { e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14 };
 
     model = add_box("levitating_orb", glm::vec3(0.0f, 3.7f, -12.5f), glm::vec3(2.6f), tex_terminal, false, 1.0f, true, 0.72f);
     model->emissive_color = glm::vec3(0.02f, 0.09f, 0.08f);
@@ -1500,6 +1508,8 @@ int App::run(void)
 						return glm::dot(da, da) < glm::dot(db, db);
 					});
 
+				glDisable(GL_BLEND);
+				glDepthMask(GL_TRUE);
 				for (auto& m : render_opaque)
 					m->draw();
 
