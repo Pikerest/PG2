@@ -93,7 +93,7 @@ private:
         float spawn_alpha{1.0f};
     };
 
-    bool show_imgui{false};
+    bool show_imgui{true};
 
     int window_width = 800;
     int window_height = 600;

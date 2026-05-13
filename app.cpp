@@ -432,17 +432,15 @@ void App::init_assets(void) {
     add_box("reactor1_floor",       glm::vec3(-77.0f, -0.05f,  -3.0f), glm::vec3(20.0f, 0.1f, 22.0f), tex_floor, true);
     add_box("r2_corridor_floor",    glm::vec3(-62.0f, -0.05f, -29.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_floor, true);
     add_box("reactor2_floor",       glm::vec3(-77.0f, -0.05f, -29.0f), glm::vec3(20.0f, 0.1f, 18.0f), tex_floor, true);
-    // Right wing floors + corridor walls (tunnel end X≈36.6 → warehouse west wall X=44.5)
+    // Right wing floors (tunnel end X≈44.4 → warehouse west wall X=44.5)
     add_box("east_corridor_floor",  glm::vec3( 33.5f, -0.05f, -12.5f), glm::vec3(23.0f, 0.1f, 10.0f), tex_floor, true);
-    add_box("east_corr_wall_n",     glm::vec3( 40.6f,  2.0f,  -17.9f), glm::vec3( 8.2f, 4.0f,  0.8f), tex_metal_panel, true, 1.0f);
-    add_box("east_corr_wall_s",     glm::vec3( 40.6f,  2.0f,   -7.1f), glm::vec3( 8.2f, 4.0f,  0.8f), tex_metal_panel, true, 1.0f);
     add_box("warehouse_floor",      glm::vec3( 63.0f, -0.05f, -17.0f), glm::vec3(36.0f, 0.1f, 46.0f), tex_floor, true);
     add_box("reactor3_floor",       glm::vec3( 89.0f, -0.05f, -24.0f), glm::vec3(14.0f, 0.1f, 33.0f), tex_floor, true);
     add_box("escape_corridor_floor", glm::vec3(0.0f, -0.05f, -37.0f), glm::vec3(8.5f, 0.1f, 18.0f), tex_floor, true);
 
     add_box("spawn_room_back_wall", glm::vec3(0.0f, 2.0f, 31.2f), glm::vec3(7.8f, 4.0f, 0.7f), tex_dark, true, 2.0f);
-    add_box("spawn_room_left_wall", glm::vec3(-4.0f, 2.0f, 25.0f), glm::vec3(0.8f, 4.0f, 12.0f), tex_wall, true, 1.5f);
-    add_box("spawn_room_right_wall", glm::vec3(4.0f, 2.0f, 25.0f), glm::vec3(0.8f, 4.0f, 12.0f), tex_wall, true, 1.5f);
+    add_box("spawn_room_left_wall", glm::vec3(-4.0f, 2.0f, 21.17f), glm::vec3(0.8f, 4.0f, 20.07f), tex_wall, true, 1.5f);
+    add_box("spawn_room_right_wall", glm::vec3(4.0f, 2.0f, 21.17f), glm::vec3(0.8f, 4.0f, 20.07f), tex_wall, true, 1.5f);
     add_box("sealed_start_door", glm::vec3(0.0f, 2.0f, 28.0f), glm::vec3(6.5f, 4.0f, 0.7f), tex_dark, true, 2.0f);
 
     const glm::vec3 hub_center(0.0f, 0.0f, -12.5f);
@@ -1082,13 +1080,18 @@ void App::init_assets(void) {
     add_obj("r2_cont",       "container-tall.obj",  glm::vec3(-84.0f, 0.0f, -21.5f), glm::vec3(0,   0, 0), glm::vec3(2.0f), tex_metal_plate_02);
 
     // === Right wing: east corridor → large warehouse → Reactor 3 behind hidden door ===
-    // East corridor (x=25 to 45, z=-17.5 to -7.5)
+    // Hex cap bridging tunnel end to warehouse west wall
+    constexpr float east_junc_cap_len = 1.6f;
+    add_hex_tunnel_shell("hub_tunnel_cap_east",
+        glm::vec3(hub_portal_panel_radius + east_tunnel_len + east_junc_cap_len * 0.5f, hub_tunnel_y, hub_center.z),
+        east_junc_cap_len, 0.0f);
 
     // Warehouse room (x=45 to 81, z=-40 to 6)
     add_box("warehouse_north_wall",  glm::vec3( 63.0f, 2.0f, -40.5f), glm::vec3(36.0f, 4.0f, 0.8f), tex_metal_panel, true, 1.5f);
     add_box("warehouse_south_wall",  glm::vec3( 63.0f, 2.0f,   6.5f), glm::vec3(36.0f, 4.0f, 0.8f), tex_metal_panel, true, 1.5f);
-    add_box("warehouse_west_n",      glm::vec3( 44.5f, 2.0f, -29.0f), glm::vec3(0.8f, 4.0f, 22.0f), tex_metal_panel, true, 1.5f);
-    add_box("warehouse_west_s",      glm::vec3( 44.5f, 2.0f,  -1.0f), glm::vec3(0.8f, 4.0f,  8.0f), tex_metal_panel, true, 1.5f);
+    // West wall opening aligned with east tunnel (z=-14.14 to -10.86)
+    add_box("warehouse_west_n",      glm::vec3( 44.5f, 2.0f, -27.32f), glm::vec3(0.8f, 4.0f, 26.36f), tex_metal_panel, true, 1.5f);
+    add_box("warehouse_west_s",      glm::vec3( 44.5f, 2.0f,  -2.18f), glm::vec3(0.8f, 4.0f, 17.36f), tex_metal_panel, true, 1.5f);
     add_box("warehouse_east_n",      glm::vec3( 81.5f, 2.0f, -34.0f), glm::vec3(0.8f, 4.0f, 12.0f), tex_metal_panel, true, 1.5f);
     add_box("warehouse_east_s",      glm::vec3( 81.5f, 2.0f,  -7.0f), glm::vec3(0.8f, 4.0f, 26.0f), tex_metal_panel, true, 1.5f);
     auto tex_door_panel = std::make_shared<Texture>(glm::vec3(0.32f, 0.36f, 0.40f)); // metallic door gray
