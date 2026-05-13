@@ -39,9 +39,16 @@ set(PROJECT_SOURCES
     Texture.cpp
     Texture.hpp
     camera.hpp
+    audio.cpp
+    audio.hpp
+    miniaudio.h
 )
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /Zm300)
+endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     fmt::fmt

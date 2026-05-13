@@ -29,6 +29,7 @@
 #include "assets.hpp"
 #include "app.hpp"
 #include "Texture.hpp"
+#include "audio.hpp"
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -105,6 +106,7 @@ bool App::init() {
         init_glew();
 
         init_gl_debug();
+        audio_init();
 
         glfwGetFramebufferSize(window, &width, &height);
         update_projection_matrix();
@@ -294,15 +296,53 @@ void App::init_assets(void) {
     point_lights.push_back({ glm::vec3(  0.0f, 4.8f,   9.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
     point_lights.push_back({ glm::vec3(  0.0f, 4.8f, -34.0f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f });
     point_lights.push_back({ glm::vec3(  0.0f, 3.7f, -12.5f), glm::vec3(0.016f, 0.032f, 0.030f), glm::vec3(0.56f, 1.40f, 1.24f), glm::vec3(0.04f, 0.10f, 0.09f), 22.0f });
+    // === Left wing — one dedicated point light per lamp, consistent values ===
+    // Ceiling lamp: ambient(0.022,0.020,0.016) diffuse(0.55,0.50,0.42) specular(0.08,0.07,0.06) r=8
+    // Wall lamp:   ambient(0.018,0.016,0.013) diffuse(0.48,0.43,0.36) specular(0.07,0.06,0.05) r=7
+    // Corridor:    ambient(0.015,0.013,0.010) diffuse(0.35,0.31,0.26) specular(0.05,0.04,0.04) r=9
+    // R1 ceiling lamps (+50% extra on top of previous +50%)
+    point_lights.push_back({ glm::vec3(-77.0f, 3.5f,  -9.0f), glm::vec3(0.108f,0.098f,0.080f), glm::vec3(2.70f,2.46f,2.06f), glm::vec3(0.395f,0.345f,0.297f),  8.0f });
+    point_lights.push_back({ glm::vec3(-77.0f, 3.5f,   3.0f), glm::vec3(0.108f,0.098f,0.080f), glm::vec3(2.70f,2.46f,2.06f), glm::vec3(0.395f,0.345f,0.297f),  8.0f });
+    // R1 wall lamps
+    point_lights.push_back({ glm::vec3(-85.0f, 3.0f,  -3.0f), glm::vec3(0.093f,0.080f,0.066f), glm::vec3(2.37f,2.15f,1.76f), glm::vec3(0.345f,0.297f,0.246f),  7.0f }); // west
+    point_lights.push_back({ glm::vec3(-77.0f, 3.0f, -12.5f), glm::vec3(0.093f,0.080f,0.066f), glm::vec3(2.37f,2.15f,1.76f), glm::vec3(0.345f,0.297f,0.246f),  7.0f }); // north
+    point_lights.push_back({ glm::vec3(-77.0f, 3.0f,   6.5f), glm::vec3(0.093f,0.080f,0.066f), glm::vec3(2.37f,2.15f,1.76f), glm::vec3(0.345f,0.297f,0.246f),  7.0f }); // south
+    // R1 corridor
+    point_lights.push_back({ glm::vec3(-65.0f, 3.0f,  -5.0f), glm::vec3(0.072f,0.066f,0.050f), glm::vec3(1.74f,1.52f,1.26f), glm::vec3(0.246f,0.197f,0.197f),  9.0f });
+    // R2 ceiling lamps
+    point_lights.push_back({ glm::vec3(-77.0f, 3.5f, -35.0f), glm::vec3(0.108f,0.098f,0.080f), glm::vec3(2.70f,2.46f,2.06f), glm::vec3(0.395f,0.345f,0.297f),  8.0f });
+    point_lights.push_back({ glm::vec3(-77.0f, 3.5f, -23.0f), glm::vec3(0.108f,0.098f,0.080f), glm::vec3(2.70f,2.46f,2.06f), glm::vec3(0.395f,0.345f,0.297f),  8.0f });
+    // R2 wall lamps
+    point_lights.push_back({ glm::vec3(-85.0f, 3.0f, -29.0f), glm::vec3(0.093f,0.080f,0.066f), glm::vec3(2.37f,2.15f,1.76f), glm::vec3(0.345f,0.297f,0.246f),  7.0f }); // west
+    point_lights.push_back({ glm::vec3(-77.0f, 3.0f, -36.5f), glm::vec3(0.093f,0.080f,0.066f), glm::vec3(2.37f,2.15f,1.76f), glm::vec3(0.345f,0.297f,0.246f),  7.0f }); // north
+    point_lights.push_back({ glm::vec3(-77.0f, 3.0f, -21.5f), glm::vec3(0.093f,0.080f,0.066f), glm::vec3(2.37f,2.15f,1.76f), glm::vec3(0.345f,0.297f,0.246f),  7.0f }); // south
+    // R2 corridor
+    point_lights.push_back({ glm::vec3(-65.0f, 3.0f, -29.0f), glm::vec3(0.072f,0.066f,0.050f), glm::vec3(1.74f,1.52f,1.26f), glm::vec3(0.246f,0.197f,0.197f),  9.0f });
+    // Junction/wing lamps
+    point_lights.push_back({ glm::vec3(-45.5f, 3.0f, -16.5f), glm::vec3(0.062f,0.053f,0.044f), glm::vec3(1.58f,1.43f,1.17f), glm::vec3(0.230f,0.198f,0.164f),  6.0f }); // entry left
+    point_lights.push_back({ glm::vec3(-45.5f, 3.0f,  -9.0f), glm::vec3(0.062f,0.053f,0.044f), glm::vec3(1.58f,1.43f,1.17f), glm::vec3(0.230f,0.198f,0.164f),  6.0f }); // entry right
+    point_lights.push_back({ glm::vec3(-55.0f, 3.0f, -17.0f), glm::vec3(0.062f,0.053f,0.044f), glm::vec3(1.58f,1.43f,1.17f), glm::vec3(0.230f,0.198f,0.164f),  9.0f }); // opp wall
+    point_lights.push_back({ glm::vec3(-50.5f, 3.0f,  -3.5f), glm::vec3(0.062f,0.053f,0.044f), glm::vec3(1.58f,1.43f,1.17f), glm::vec3(0.230f,0.198f,0.164f),  7.0f }); // south wall
+    point_lights.push_back({ glm::vec3(-50.5f, 3.0f, -32.0f), glm::vec3(0.062f,0.053f,0.044f), glm::vec3(1.58f,1.43f,1.17f), glm::vec3(0.230f,0.198f,0.164f),  7.0f }); // north wall
+    // Junction general fill
+    point_lights.push_back({ glm::vec3(-50.5f, 3.5f, -17.0f), glm::vec3(0.062f,0.053f,0.044f), glm::vec3(1.37f,1.26f,1.04f), glm::vec3(0.198f,0.164f,0.131f), 16.0f });
 
     spot_lights.clear();
 
-    auto tex_box = std::make_shared<Texture>("textures/box.png");
+    auto tex_box             = std::make_shared<Texture>("textures/box.png");
+    auto tex_metal_plate     = std::make_shared<Texture>("textures/metal_plate.jpg");
+    auto tex_metal_plate_02  = std::make_shared<Texture>("textures/metal_plate_02.jpg");
+    auto tex_rusty_metal     = std::make_shared<Texture>("textures/rusty_metal.jpg");
+    auto tex_corrugated_iron = std::make_shared<Texture>("textures/corrugated_iron.jpg");
+    auto tex_concrete_wall   = std::make_shared<Texture>("textures/concrete_wall.jpg");
+    auto tex_metal_panel     = std::make_shared<Texture>("textures/metal_panel.jpg");
+    auto tex_sci_floor       = std::make_shared<Texture>("textures/sci_floor.jpg");
     auto tex_floor = std::make_shared<Texture>(glm::vec3(0.30f, 0.32f, 0.30f));
     auto tex_wall = std::make_shared<Texture>(glm::vec3(0.22f, 0.25f, 0.28f));
     auto tex_dark = std::make_shared<Texture>(glm::vec3(0.08f, 0.09f, 0.10f));
     auto tex_terminal = std::make_shared<Texture>(glm::vec3(0.12f, 0.45f, 0.55f));
     auto tex_enemy = std::make_shared<Texture>(glm::vec3(0.55f, 0.18f, 0.16f));
+    auto tex_orc   = std::make_shared<Texture>("textures/orc_atlas.png");
     auto tex_catwalk = std::make_shared<Texture>("textures/catwalk_diamond_plate.png");
     auto tex_octagon_plate = std::make_shared<Texture>("textures/octagon_teardrop_plate.png");
     auto tex_rail = std::make_shared<Texture>(glm::vec3(0.68f, 0.82f, 0.74f));
@@ -821,39 +861,150 @@ void App::init_assets(void) {
     add_railing_segment("hub_rail_north_right", glm::vec2( 1.1f, -hub_catwalk_portal_end), glm::vec2( 1.1f, -hub_oct_apothem));
 
     // === Left wing: main corridor → T-junction → Reactor 1 (south) + Reactor 2 (north) ===
-    // Main corridor (x=-25 to -44, z=-17.5 to -7.5)
-
     // T-junction room (x=-44 to -57, z=-34 to -2)
-    add_box("left_junc_north_wall",  glm::vec3(-50.5f, 2.0f, -34.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
-    add_box("left_junc_south_wall",  glm::vec3(-50.5f, 2.0f,  -1.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
-    // East wall of junction — gap at z=-17.5 to -7.5 for corridor entry
-    add_box("left_junc_east_n",      glm::vec3(-44.5f, 2.0f, -26.0f), glm::vec3(0.8f, 4.0f, 16.0f), tex_wall, true, 1.5f);
-    add_box("left_junc_east_s",      glm::vec3(-44.5f, 2.0f,  -4.5f), glm::vec3(0.8f, 4.0f,  5.0f), tex_wall, true, 1.5f);
+    add_box("left_junc_north_wall",  glm::vec3(-50.5f, 2.0f, -34.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_concrete_wall, true, 1.5f);
+    add_box("left_junc_south_wall",  glm::vec3(-50.5f, 2.0f,  -1.5f), glm::vec3(13.0f, 4.0f, 0.8f), tex_concrete_wall, true, 1.5f);
+    // East wall — opening z=-14.861 to -10.139
+    add_box("left_junc_east_n", glm::vec3(-44.235f, 2.0f, -24.430f), glm::vec3(0.8f, 4.0f, 19.139f), tex_concrete_wall, true, 1.5f);
+    add_box("left_junc_east_s", glm::vec3(-44.235f, 2.0f,  -6.070f), glm::vec3(0.8f, 4.0f,  8.139f), tex_concrete_wall, true, 1.5f);
+    // Short hex cap bridging tunnel end to junction wall — covers corner gaps naturally
+    constexpr float junc_cap_len = 1.6f;
+    add_hex_tunnel_shell("hub_tunnel_cap_west",
+        glm::vec3(-hub_portal_panel_radius - west_tunnel_len - junc_cap_len * 0.5f, hub_tunnel_y, hub_center.z),
+        junc_cap_len, 0.0f);
     // West wall of junction — two gaps: R2 at z=-32 to -26, R1 at z=-8 to -2
-    add_box("left_junc_west_n",      glm::vec3(-57.0f, 2.0f, -33.0f), glm::vec3(0.8f, 4.0f,  2.0f), tex_wall, true, 1.5f);
-    add_box("left_junc_west_mid",    glm::vec3(-57.0f, 2.0f, -17.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_wall, true, 1.5f);
+    add_box("left_junc_west_n",      glm::vec3(-57.0f, 2.0f, -33.0f), glm::vec3(0.8f, 4.0f,  2.0f), tex_concrete_wall, true, 1.5f);
+    add_box("left_junc_west_mid",    glm::vec3(-57.0f, 2.0f, -17.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_concrete_wall, true, 1.5f);
 
-    // Reactor 1 corridor (south arm, z=-8 to -2, x=-57 to -67)
-    add_box("r1_corr_north_wall",    glm::vec3(-62.0f, 2.0f,  -8.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
-    add_box("r1_corr_south_wall",    glm::vec3(-62.0f, 2.0f,  -1.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    // Reactor 1 corridor — extended to x=-67.5 to meet entry wall flush
+    add_box("r1_corr_north_wall",    glm::vec3(-62.25f, 2.0f,  -8.5f), glm::vec3(10.5f, 4.0f, 0.8f), tex_concrete_wall, true, 1.5f);
+    add_box("r1_corr_south_wall",    glm::vec3(-62.25f, 2.0f,  -1.5f), glm::vec3(10.5f, 4.0f, 0.8f), tex_concrete_wall, true, 1.5f);
 
-    // Reactor 1 room (x=-67 to -87, z=-14 to 8) — entry from east at z=-8 to -2
-    add_box("reactor1_room_west",    glm::vec3(-87.5f, 2.0f,  -3.0f), glm::vec3(0.8f, 4.0f, 22.0f), tex_wall, true, 1.5f);
-    add_box("reactor1_room_north",   glm::vec3(-77.0f, 2.0f, -14.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
-    add_box("reactor1_room_south",   glm::vec3(-77.0f, 2.0f,   8.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
-    add_box("reactor1_entry_n",      glm::vec3(-67.5f, 2.0f, -11.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
-    add_box("reactor1_entry_s",      glm::vec3(-67.5f, 2.0f,   5.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
+    // Reactor 1 room — entry opening aligned with corridor (z=-8.5 to -1.5, 7 units)
+    add_box("reactor1_room_west",    glm::vec3(-87.5f, 2.0f,  -3.0f), glm::vec3(0.8f, 4.0f, 22.0f), tex_concrete_wall, true, 1.5f);
+    add_box("reactor1_room_north",   glm::vec3(-77.0f, 2.0f, -14.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_concrete_wall, true, 1.5f);
+    add_box("reactor1_room_south",   glm::vec3(-77.0f, 2.0f,   8.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_concrete_wall, true, 1.5f);
+    add_box("reactor1_entry_n",      glm::vec3(-67.5f, 2.0f, -11.75f), glm::vec3(0.8f, 4.0f,  5.5f), tex_concrete_wall, true, 1.5f);
+    add_box("reactor1_entry_s",      glm::vec3(-67.5f, 2.0f,   3.25f), glm::vec3(0.8f, 4.0f,  9.5f), tex_concrete_wall, true, 1.5f);
+    // Reactor 1 room — ceiling strip lights
+    add_lamp("r1_ceil_lamp_n",     glm::vec3(-77.0f, 3.88f,  -9.0f), glm::vec3(5.5f, 0.12f, 0.55f));
+    add_lamp("r1_ceil_lamp_s",     glm::vec3(-77.0f, 3.88f,   3.0f), glm::vec3(5.5f, 0.12f, 0.55f));
+    // Reactor 1 room — wall strip lights
+    add_lamp("r1_wall_lamp_west",  glm::vec3(-87.1f, 2.85f,  -3.0f), glm::vec3(0.12f, 0.22f, 12.0f));
+    add_lamp("r1_wall_lamp_north", glm::vec3(-77.0f, 2.85f, -14.1f), glm::vec3(12.0f, 0.22f, 0.12f));
+    add_lamp("r1_wall_lamp_south", glm::vec3(-77.0f, 2.85f,   8.1f), glm::vec3(12.0f, 0.22f, 0.12f));
+    // Left and right of entrance — inner face of east wall, near hex opening edges (z=-14.861 / -10.139)
+    add_lamp("wing_entry_left",    glm::vec3(-44.64f, 2.85f, -16.5f),  glm::vec3(0.12f, 0.22f, 3.5f));
+    add_lamp("wing_entry_right",   glm::vec3(-44.64f, 2.85f,  -9.0f),  glm::vec3(0.12f, 0.22f, 2.5f));
+    // Wall opposite the tunnel opening — west wall of the junction, full width (z=-26 to -8)
+    add_lamp("wing_opp_wall_lamp", glm::vec3(-56.6f,  2.85f, -17.0f),  glm::vec3(0.12f, 0.22f, 17.5f));
+    // Right wall when entering from tunnel — south wall of junction, middle
+    add_lamp("wing_south_wall_lamp", glm::vec3(-50.5f, 2.85f,  -1.9f),  glm::vec3(8.0f, 0.22f, 0.12f));
+    // North wall of junction — the blank far wall (inside room, lamp faces south)
+    add_lamp("wing_north_wall_lamp", glm::vec3(-50.5f, 2.85f, -33.85f), glm::vec3(8.0f, 0.22f, 0.12f));
+
+    // === T-junction props ===
+    auto tex_warning = std::make_shared<Texture>(glm::vec3(0.78f, 0.64f, 0.04f));
+
+    // Floor warning stripes marking the east-west corridor crossing
+    add_box("junc_stripe_n", glm::vec3(-50.5f, 0.02f, -15.0f), glm::vec3(12.5f, 0.04f, 0.35f), tex_warning, false);
+    add_box("junc_stripe_s", glm::vec3(-50.5f, 0.02f, -10.5f), glm::vec3(12.5f, 0.04f, 0.35f), tex_warning, false);
+
+    // Pipes along west wall — split to avoid doorway openings (R2 gap z=-32 to -26, R1 gap z=-8 to -2)
+    add_box("junc_pipe_lo_n",   glm::vec3(-56.7f, 0.55f, -33.0f), glm::vec3(0.18f, 0.18f,  2.0f), tex_rusty_metal, false, 2.0f);
+    add_box("junc_pipe_lo_mid", glm::vec3(-56.7f, 0.55f, -17.0f), glm::vec3(0.18f, 0.18f, 18.0f), tex_rusty_metal, false, 2.0f);
+    add_box("junc_pipe_hi_n",   glm::vec3(-56.7f, 2.30f, -33.0f), glm::vec3(0.18f, 0.18f,  2.0f), tex_rusty_metal, false, 2.0f);
+    add_box("junc_pipe_hi_mid", glm::vec3(-56.7f, 2.30f, -17.0f), glm::vec3(0.18f, 0.18f, 18.0f), tex_rusty_metal, false, 2.0f);
+    // Pipe brackets only on solid wall segments
+    add_box("junc_pipe_brk1", glm::vec3(-56.5f, 1.40f, -25.0f), glm::vec3(0.35f, 2.10f, 0.22f), tex_dark, false, 1.5f);
+    add_box("junc_pipe_brk2", glm::vec3(-56.5f, 1.40f, -17.0f), glm::vec3(0.35f, 2.10f, 0.22f), tex_dark, false, 1.5f);
+    add_box("junc_pipe_brk3", glm::vec3(-56.5f, 1.40f,  -9.5f), glm::vec3(0.35f, 2.10f, 0.22f), tex_dark, false, 1.5f);
+
+    // Central console station — OBJ models against west wall (z=-24 to -17)
+    auto add_obj = [&](const std::string& name, const std::string& path,
+                       glm::vec3 pos, glm::vec3 euler, glm::vec3 sc,
+                       std::shared_ptr<Texture> tex) {
+        auto m = std::make_shared<Model>("objects/" + path, shader_prog, tex);
+        m->pivot_position = pos;
+        m->eulerAngles    = euler;
+        m->scale          = sc;
+        scene[name] = m;
+        return m;
+    };
+
+    add_obj("junc_computer",      "computer-system.obj",  glm::vec3(-56.0f, 0.0f, -22.0f), glm::vec3(0,  90, 0), glm::vec3(2.10f), tex_metal_plate_02);
+    add_obj("junc_screen",        "computer-screen.obj",  glm::vec3(-56.0f, 0.0f, -19.5f), glm::vec3(0,  90, 0), glm::vec3(2.10f), tex_terminal);
+    add_obj("junc_table",         "table-large.obj",      glm::vec3(-55.0f, 0.0f, -17.0f), glm::vec3(0,   0, 0), glm::vec3(1.95f), tex_metal_plate);
+    add_obj("junc_chair_1",       "chair.obj",            glm::vec3(-53.0f, 0.0f, -19.5f), glm::vec3(0, 180, 0), glm::vec3(1.80f), tex_dark);
+    add_obj("junc_chair_2",       "chair.obj",            glm::vec3(-53.0f, 0.0f, -22.0f), glm::vec3(0, 180, 0), glm::vec3(1.80f), tex_dark);
+
+    // Containers NE corner — against east wall
+    add_obj("junc_container_ne1", "container-tall.obj",   glm::vec3(-45.0f, 0.0f, -27.0f), glm::vec3(0,   0, 0), glm::vec3(1.95f), tex_corrugated_iron);
+    add_obj("junc_container_ne2", "container.obj",        glm::vec3(-45.0f, 0.0f, -24.0f), glm::vec3(0,  90, 0), glm::vec3(1.80f), tex_metal_plate_02);
+    add_obj("junc_box_ne",        "box-large.obj",        glm::vec3(-46.0f, 0.0f, -22.0f), glm::vec3(0,  45, 0), glm::vec3(1.65f), tex_box);
+
+    // Containers SE corner — against east wall
+    add_obj("junc_container_se1", "container.obj",        glm::vec3(-45.0f, 0.0f,  -6.5f), glm::vec3(0,   0, 0), glm::vec3(1.80f), tex_corrugated_iron);
+    add_obj("junc_box_se1",       "box-large.obj",        glm::vec3(-45.5f, 0.0f,  -4.5f), glm::vec3(0,  20, 0), glm::vec3(1.50f), tex_box);
+    add_obj("junc_box_se2",       "box-small.obj",        glm::vec3(-46.5f, 0.0f,  -3.5f), glm::vec3(0, -15, 0), glm::vec3(1.65f), tex_box);
 
     // Reactor 2 corridor (north arm, z=-32 to -26, x=-57 to -67)
-    add_box("r2_corr_north_wall",    glm::vec3(-62.0f, 2.0f, -32.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
-    add_box("r2_corr_south_wall",    glm::vec3(-62.0f, 2.0f, -25.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_wall, true, 1.5f);
+    add_box("r2_corr_north_wall",    glm::vec3(-62.0f, 2.0f, -32.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_metal_panel, true, 1.5f);
+    add_box("r2_corr_south_wall",    glm::vec3(-62.0f, 2.0f, -25.5f), glm::vec3(10.0f, 4.0f, 0.8f), tex_metal_panel, true, 1.5f);
 
     // Reactor 2 room (x=-67 to -87, z=-38 to -20) — entry from east at z=-32 to -26
-    add_box("reactor2_room_west",    glm::vec3(-87.5f, 2.0f, -29.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_wall, true, 1.5f);
-    add_box("reactor2_room_north",   glm::vec3(-77.0f, 2.0f, -38.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
-    add_box("reactor2_room_south",   glm::vec3(-77.0f, 2.0f, -19.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_wall, true, 1.5f);
-    add_box("reactor2_entry_n",      glm::vec3(-67.5f, 2.0f, -35.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
-    add_box("reactor2_entry_s",      glm::vec3(-67.5f, 2.0f, -23.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_wall, true, 1.5f);
+    add_box("reactor2_room_west",    glm::vec3(-87.5f, 2.0f, -29.0f), glm::vec3(0.8f, 4.0f, 18.0f), tex_metal_panel, true, 1.5f);
+    add_box("reactor2_room_north",   glm::vec3(-77.0f, 2.0f, -38.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_metal_panel, true, 1.5f);
+    add_box("reactor2_room_south",   glm::vec3(-77.0f, 2.0f, -19.5f), glm::vec3(20.0f, 4.0f,  0.8f), tex_metal_panel, true, 1.5f);
+    add_box("reactor2_entry_n",      glm::vec3(-67.5f, 2.0f, -35.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_metal_panel, true, 1.5f);
+    add_box("reactor2_entry_s",      glm::vec3(-67.5f, 2.0f, -23.0f), glm::vec3(0.8f, 4.0f,  6.0f), tex_metal_panel, true, 1.5f);
+    // Reactor 2 room — ceiling strip lights (mirrored from R1, offset z by -26)
+    add_lamp("r2_ceil_lamp_n",     glm::vec3(-77.0f, 3.88f, -35.0f), glm::vec3(5.5f, 0.12f, 0.55f));
+    add_lamp("r2_ceil_lamp_s",     glm::vec3(-77.0f, 3.88f, -23.0f), glm::vec3(5.5f, 0.12f, 0.55f));
+    // Reactor 2 room — wall strip lights
+    add_lamp("r2_wall_lamp_west",  glm::vec3(-87.1f, 2.85f, -29.0f), glm::vec3(0.12f, 0.22f, 12.0f));
+    add_lamp("r2_wall_lamp_north", glm::vec3(-77.0f, 2.85f, -38.1f), glm::vec3(12.0f, 0.22f, 0.12f));
+    add_lamp("r2_wall_lamp_south", glm::vec3(-77.0f, 2.85f, -19.9f), glm::vec3(12.0f, 0.22f, 0.12f));
+
+    // === Left wing ceilings ===
+    add_box("left_junc_ceiling",   glm::vec3(-50.5f, 4.05f, -18.0f), glm::vec3(13.0f, 0.1f, 32.0f), tex_metal_plate,  false, 1.5f);
+    add_box("r1_corr_ceiling",     glm::vec3(-62.0f, 4.05f,  -5.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_metal_plate,  false, 1.5f);
+    add_box("reactor1_ceiling",    glm::vec3(-77.0f, 4.05f,  -3.0f), glm::vec3(20.0f, 0.1f, 22.0f), tex_metal_plate,  false, 1.5f);
+    add_box("r2_corr_ceiling",     glm::vec3(-62.0f, 4.05f, -29.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_metal_panel,  false, 1.5f);
+    add_box("reactor2_ceiling",    glm::vec3(-77.0f, 4.05f, -29.0f), glm::vec3(20.0f, 0.1f, 18.0f), tex_metal_panel,  false, 1.5f);
+
+    // === Reactor 1 room furniture — industrial lab with machines and server racks ===
+    // (x=-67 to -87, z=-14 to +8, reactor at (-77,0.8,-3), button at (-71,0.55,-3))
+    // Server racks against west wall
+    add_obj("r1_server_a",   "computer-system.obj", glm::vec3(-86.5f, 0.0f, -10.0f), glm::vec3(0,  90, 0), glm::vec3(2.2f), tex_metal_panel);
+    add_obj("r1_server_b",   "computer-system.obj", glm::vec3(-86.5f, 0.0f,  -7.0f), glm::vec3(0,  90, 0), glm::vec3(2.2f), tex_metal_panel);
+    add_obj("r1_screen",     "screen-flat.obj",     glm::vec3(-86.5f, 0.0f,  -4.0f), glm::vec3(0,  90, 0), glm::vec3(2.0f), tex_terminal);
+    // Work table + chair in SE corner (clear of reactor/button)
+    add_obj("r1_table",      "table.obj",           glm::vec3(-73.0f, 0.0f,   5.5f), glm::vec3(0,   0, 0), glm::vec3(2.0f), tex_metal_plate);
+    add_obj("r1_chair_a",    "chair.obj",           glm::vec3(-70.5f, 0.0f,   5.5f), glm::vec3(0, 180, 0), glm::vec3(1.8f), tex_dark);
+    // Industrial machine in NW corner
+    add_obj("r1_machine",    "machine.obj",         glm::vec3(-85.5f, 0.0f, -12.0f), glm::vec3(0,   0, 0), glm::vec3(2.0f), tex_corrugated_iron);
+    // Containers along north wall
+    add_obj("r1_cont_a",     "container.obj",       glm::vec3(-82.0f, 0.0f, -12.5f), glm::vec3(0,  90, 0), glm::vec3(1.8f), tex_corrugated_iron);
+    add_obj("r1_cont_b",     "container.obj",       glm::vec3(-79.0f, 0.0f, -12.5f), glm::vec3(0,  90, 0), glm::vec3(1.8f), tex_metal_plate_02);
+    // Hopper in south corner (away from button)
+    add_obj("r1_hopper",     "hopper-square.obj",   glm::vec3(-85.0f, 0.0f,   6.5f), glm::vec3(0,   0, 0), glm::vec3(2.0f), tex_rusty_metal);
+
+    // === Reactor 2 room furniture — monitoring/control room style ===
+    // (x=-67 to -87, z=-38 to -20, reactor at (-77,0.8,-29), button at (-71,0.55,-29))
+    // Wide display wall along west wall (monitoring station)
+    add_obj("r2_screen_a",   "screen-flat.obj",     glm::vec3(-86.5f, 0.0f, -32.0f), glm::vec3(0,  90, 0), glm::vec3(2.2f), tex_terminal);
+    add_obj("r2_screen_b",   "screen-flat.obj",     glm::vec3(-86.5f, 0.0f, -28.0f), glm::vec3(0,  90, 0), glm::vec3(2.2f), tex_terminal);
+    add_obj("r2_computer",   "computer.obj",        glm::vec3(-86.5f, 0.0f, -25.0f), glm::vec3(0,  90, 0), glm::vec3(2.0f), tex_metal_panel);
+    // Central monitoring table with two chairs
+    add_obj("r2_table",      "table-large.obj",     glm::vec3(-79.0f, 0.0f, -29.0f), glm::vec3(0,   0, 0), glm::vec3(2.0f), tex_sci_floor);
+    add_obj("r2_chair_a",    "chair.obj",           glm::vec3(-76.0f, 0.0f, -27.5f), glm::vec3(0, 135, 0), glm::vec3(1.8f), tex_dark);
+    add_obj("r2_chair_b",    "chair.obj",           glm::vec3(-76.0f, 0.0f, -30.5f), glm::vec3(0, 225, 0), glm::vec3(1.8f), tex_dark);
+    // Storage boxes in NE corner (near north wall)
+    add_obj("r2_box_a",      "box-large.obj",       glm::vec3(-70.0f, 0.0f, -36.5f), glm::vec3(0,  20, 0), glm::vec3(1.8f), tex_box);
+    add_obj("r2_box_b",      "box-small.obj",       glm::vec3(-68.5f, 0.0f, -35.0f), glm::vec3(0, -30, 0), glm::vec3(1.6f), tex_box);
+    // Industrial container against south wall
+    add_obj("r2_cont",       "container-tall.obj",  glm::vec3(-84.0f, 0.0f, -21.5f), glm::vec3(0,   0, 0), glm::vec3(2.0f), tex_metal_plate_02);
 
     // === Right wing: east corridor → large warehouse → Reactor 3 behind hidden door ===
     // East corridor (x=25 to 45, z=-17.5 to -7.5)
@@ -941,10 +1092,34 @@ void App::init_assets(void) {
     gate_model = add_box("containment_gate", glm::vec3(0.0f, 1.8f, -39.2f), glm::vec3(7.5f, 3.6f, 0.8f), tex_dark, true, 2.5f);
 
     Enemy e1{ add_box("enemy_01", glm::vec3( -2.8f, 0.8f,  -6.2f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 3, 0.0f };
-    Enemy e2{ add_box("enemy_02", glm::vec3(-50.0f, 0.8f, -12.5f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 3, 1.7f };
     Enemy e3{ add_box("enemy_03", glm::vec3( 60.0f, 0.8f, -20.0f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 3, 3.4f };
     Enemy e4{ add_box("enemy_04", glm::vec3(  0.0f, 0.8f, -28.0f), glm::vec3(0.8f, 1.6f, 0.8f), tex_enemy, true, 1.0f), 4, 5.1f };
-    enemies = { e1, e2, e3, e4 };
+    // Reactor enemies — orc OBJ model
+    auto make_reactor_enemy = [&](const std::string& name, glm::vec3 pos, float bob_off) -> Enemy {
+        auto m = std::make_shared<Model>("objects/orc_solid.obj", shader_prog, tex_orc);
+        m->pivot_position = pos;
+        m->scale = glm::vec3(74.0f);
+        m->two_sided_lighting = true;
+        m->bounding_radius = m->get_cull_radius();
+        scene[name] = m;
+        Enemy e{ m, 3, bob_off };
+        e.y_base = 0.22f;
+        return e;
+    };
+    // Reactor 1 — spread across open floor, away from servers/containers
+    Enemy e5  = make_reactor_enemy("enemy_05", glm::vec3(-78.5f, 0.0f,  -5.0f), 0.8f);
+    Enemy e6  = make_reactor_enemy("enemy_06", glm::vec3(-74.0f, 0.0f,   1.5f), 2.5f);
+    Enemy e9  = make_reactor_enemy("enemy_09", glm::vec3(-83.0f, 0.0f,  -2.5f), 1.4f);
+    Enemy e10 = make_reactor_enemy("enemy_10", glm::vec3(-75.5f, 0.0f,  -9.0f), 3.1f);
+    // Reactor 2 — spread across open floor, away from table/boxes/screens
+    Enemy e7  = make_reactor_enemy("enemy_07", glm::vec3(-80.5f, 0.0f, -30.5f), 4.2f);
+    Enemy e8  = make_reactor_enemy("enemy_08", glm::vec3(-74.0f, 0.0f, -24.0f), 6.0f);
+    Enemy e11 = make_reactor_enemy("enemy_11", glm::vec3(-77.5f, 0.0f, -34.0f), 0.5f);
+    Enemy e12 = make_reactor_enemy("enemy_12", glm::vec3(-73.0f, 0.0f, -31.5f), 2.2f);
+    // T-junction — 2 enemies visible from tunnel entrance
+    Enemy e13 = make_reactor_enemy("enemy_13", glm::vec3(-50.0f, 0.0f, -25.0f), 3.8f);
+    Enemy e14 = make_reactor_enemy("enemy_14", glm::vec3(-50.0f, 0.0f,  -7.0f), 5.5f);
+    enemies = { e1, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14 };
 
     model = add_box("levitating_orb", glm::vec3(0.0f, 3.7f, -12.5f), glm::vec3(2.6f), tex_terminal, false, 1.0f, true, 0.72f);
     model->emissive_color = glm::vec3(0.02f, 0.09f, 0.08f);
@@ -1223,6 +1398,7 @@ int App::run(void)
 
 			shader_prog->use();
 			const glm::mat4 view = camera.GetViewMatrix();
+			view_matrix = view;
 			shader_prog->setUniform("uV_m", view);
 			shader_prog->setUniform("uP_m", projection_matrix);
 
@@ -1248,7 +1424,7 @@ int App::run(void)
 			shader_prog->setUniform("dir_light_diffuse", dir_light.diffuse);
 			shader_prog->setUniform("dir_light_specular", dir_light.specular);
 
-			const int uploaded_point_lights = static_cast<int>(std::min<size_t>(point_lights.size(), 16));
+			const int uploaded_point_lights = static_cast<int>(std::min<size_t>(point_lights.size(), 24));
 			shader_prog->setUniform("num_point_lights", uploaded_point_lights);
 			if (uploaded_point_lights > 0) {
 				static std::vector<glm::vec3> light_positions;
@@ -1334,6 +1510,8 @@ int App::run(void)
 						return glm::dot(da, da) < glm::dot(db, db);
 					});
 
+				glDisable(GL_BLEND);
+				glDepthMask(GL_TRUE);
 				for (auto& m : render_opaque)
 					m->draw();
 
@@ -1367,6 +1545,7 @@ int App::run(void)
 				draw_trigger_debug();
 			}
 
+			draw_enemy_health_bars();
 			draw_particles();
 
 			ImGui::Render();
@@ -1396,6 +1575,7 @@ int App::run(void)
 
 void App::destroy(void)
 {
+    audio_destroy();
     destroy_oit_buffers();
     if (fullscreen_vao != 0) {
         glDeleteVertexArrays(1, &fullscreen_vao);
@@ -1522,6 +1702,28 @@ void App::update_gameplay(float delta_t, double now)
         point_lights[i].radius   = profile.radius;
     }
 
+    // Reactor room light flicker (indices 6–17 = all R1+R2 lamps)
+    if (point_lights.size() > 17) {
+        const float t = static_cast<float>(now);
+        // R1: deep flicker — sum can go negative → clamped to 0.05 (nearly off)
+        const float r1 = std::max(0.05f, 0.50f + 0.45f * std::sin(t * 7.3f)
+                                        + 0.25f * std::sin(t * 19.7f + 0.8f)
+                                        + 0.10f * std::sin(t * 43.1f));
+        // R2: different phase so rooms flicker independently
+        const float r2 = std::max(0.05f, 0.50f + 0.45f * std::sin(t * 6.8f + 1.57f)
+                                        + 0.25f * std::sin(t * 21.3f + 0.4f)
+                                        + 0.10f * std::sin(t * 51.7f));
+        const glm::vec3 ceil_base(1.20f, 1.09f, 0.91f);
+        const glm::vec3 wall_base(1.05f, 0.95f, 0.78f);
+        const glm::vec3 corr_base(0.77f, 0.67f, 0.56f);
+        for (int i = 6;  i <= 7;  ++i) point_lights[i].diffuse = ceil_base * r1;
+        for (int i = 8;  i <= 10; ++i) point_lights[i].diffuse = wall_base * r1;
+        point_lights[11].diffuse = corr_base * r1;
+        for (int i = 12; i <= 13; ++i) point_lights[i].diffuse = ceil_base * r2;
+        for (int i = 14; i <= 16; ++i) point_lights[i].diffuse = wall_base * r2;
+        point_lights[17].diffuse = corr_base * r2;
+    }
+
     // Orb light — bright while reactors are off, fades out once hub is fully powered
     constexpr size_t ORB_LIGHT = 5;
     if (ORB_LIGHT < point_lights.size()) {
@@ -1547,19 +1749,59 @@ void App::update_gameplay(float delta_t, double now)
         it->second->emissive_color = hub_powered ? top_lamp_bright : top_lamp_dim;
     }
 
-	for (auto& enemy : enemies) {
-		if (!enemy.alive || !enemy.model) {
-			continue;
+	// Sphere-AABB collision check for enemies — only walls/objects at same Y level
+	auto enemy_blocked = [&](const glm::vec3& pos) -> bool {
+		constexpr float ENEMY_R = 0.4f;
+		for (const auto& col : scene_colliders) {
+			const glm::vec3 half = col->scale * 0.5f;
+			const glm::vec3 mn   = col->pivot_position - half;
+			const glm::vec3 mx   = col->pivot_position + half;
+			// Skip flat floors/ceilings — only block if enemy center is inside Y range
+			if (pos.y < mn.y || pos.y > mx.y) continue;
+			const float cx = std::clamp(pos.x, mn.x, mx.x);
+			const float cz = std::clamp(pos.z, mn.z, mx.z);
+			const float dx = pos.x - cx, dz = pos.z - cz;
+			if (dx*dx + dz*dz < ENEMY_R * ENEMY_R) return true;
 		}
+		return false;
+	};
+
+	for (auto& enemy : enemies) {
+		if (!enemy.alive || !enemy.model) continue;
 
 		const float bob = std::sin(static_cast<float>(now) * 2.2f + enemy.bob_offset) * 0.15f;
-		enemy.model->pivot_position.y = 0.8f + bob;
-		enemy.model->eulerAngles.y += delta_t * 40.0f;
+		enemy.model->pivot_position.y = enemy.y_base + bob;
 
-		const float distance_to_player = glm::distance(camera.Position, enemy.model->pivot_position);
-		if (distance_to_player < 1.2f) {
-			player_health = std::max(0, player_health - 1);
-			set_hud_message("Specimen contact detected.");
+		const glm::vec3 to_player = camera.Position - enemy.model->pivot_position;
+		const float xz_dist = glm::length(glm::vec3(to_player.x, 0.0f, to_player.z));
+
+		// Only chase when player is within activation radius
+		constexpr float CHASE_RADIUS = 18.0f;
+		constexpr float STOP_DIST    = 1.4f;
+		constexpr float SPEED        = 1.8f;
+
+		if (xz_dist > STOP_DIST && xz_dist < CHASE_RADIUS) {
+			const glm::vec3 dir  = glm::normalize(glm::vec3(to_player.x, 0.0f, to_player.z));
+			const glm::vec3 base = enemy.model->pivot_position;
+
+			// Slide along walls: try X then Z independently
+			glm::vec3 try_x = base; try_x.x += dir.x * SPEED * delta_t;
+			glm::vec3 try_z = base; try_z.z += dir.z * SPEED * delta_t;
+
+			if (!enemy_blocked(try_x)) enemy.model->pivot_position.x = try_x.x;
+			if (!enemy_blocked(try_z)) enemy.model->pivot_position.z = try_z.z;
+		}
+
+		// Always face the player
+		enemy.model->eulerAngles.y = glm::degrees(std::atan2(to_player.x, to_player.z));
+
+		// Melee attack — 10 HP per hit, 1 second cooldown
+		const float full_dist = glm::distance(camera.Position, enemy.model->pivot_position);
+		if (full_dist < 2.1f && now - enemy.last_attack_time > 1.0) {
+			enemy.last_attack_time = now;
+			player_health = std::max(0, player_health - 10);
+			audio_play_hurt();
+			set_hud_message("Specimen contact — taking damage!");
 		}
 	}
 
@@ -1781,6 +2023,8 @@ void App::fire_weapon()
 			hit_enemy = &enemy;
 		}
 	}
+
+	audio_play_shoot();
 
 	if (!hit_enemy) {
 		set_hud_message("Shot missed.");
@@ -2314,6 +2558,82 @@ void App::draw_trigger_debug()
         ImGui::PopStyleColor();
         ImGui::End();
         ImGui::PopStyleVar();
+    }
+}
+
+// Draw a heart shape using ImGui DrawList primitives
+static void draw_heart(ImDrawList* dl, float cx, float cy, float r, ImU32 col) {
+    // Two circles for the top bumps
+    dl->AddCircleFilled(ImVec2(cx - r * 0.5f, cy - r * 0.2f), r * 0.62f, col, 16);
+    dl->AddCircleFilled(ImVec2(cx + r * 0.5f, cy - r * 0.2f), r * 0.62f, col, 16);
+    // Triangle for the bottom point
+    dl->AddTriangleFilled(
+        ImVec2(cx - r, cy + r * 0.05f),
+        ImVec2(cx + r, cy + r * 0.05f),
+        ImVec2(cx,     cy + r), col);
+}
+
+void App::draw_enemy_health_bars()
+{
+    const glm::mat4 vp = projection_matrix * view_matrix;
+    constexpr ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+        ImGuiWindowFlags_NoNav        | ImGuiWindowFlags_NoMove   |
+        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
+        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBackground;
+
+    constexpr int   MAX_HP    = 3;
+    constexpr float HEART_R   = 7.0f;   // heart radius in pixels
+    constexpr float HEART_GAP = 18.0f;  // spacing between hearts
+
+    for (int i = 0; i < (int)enemies.size(); ++i) {
+        const auto& enemy = enemies[i];
+        if (!enemy.alive || !enemy.model) continue;
+
+        // Project 2 units above enemy pivot to screen space
+        const glm::vec3 world_pos = enemy.model->pivot_position + glm::vec3(0.0f, 2.0f, 0.0f);
+        const glm::vec4 clip = vp * glm::vec4(world_pos, 1.0f);
+        if (clip.w <= 0.0f) continue;
+        const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+        if (std::abs(ndc.x) > 1.0f || std::abs(ndc.y) > 1.0f) continue;
+        const float sx = (ndc.x * 0.5f + 0.5f) * static_cast<float>(width);
+        const float sy = (1.0f - (ndc.y * 0.5f + 0.5f)) * static_cast<float>(height);
+
+        // Alpha fades with distance
+        const float dist  = glm::distance(camera.Position, enemy.model->pivot_position);
+        const float alpha = std::clamp(1.0f - (dist - 5.0f) / 20.0f, 0.25f, 1.0f);
+        const float total_w = MAX_HP * HEART_GAP;
+
+        // Minimal invisible window so we get a DrawList
+        ImGui::SetNextWindowPos(ImVec2(sx - total_w * 0.5f, sy - HEART_R * 2.5f),
+                                ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(total_w, HEART_R * 2.5f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,    ImVec2(0, 0));
+        ImGui::Begin(("##ehp_" + std::to_string(i)).c_str(), nullptr, flags);
+
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const ImVec2 wpos = ImGui::GetWindowPos();
+
+        for (int h = 0; h < MAX_HP; ++h) {
+            const float hx = wpos.x + (h + 0.5f) * HEART_GAP;
+            const float hy = wpos.y + HEART_R;
+
+            ImU32 col;
+            if (h < enemy.health) {
+                float r, g, b;
+                if      (enemy.health == 1) { r=1.0f; g=0.15f; b=0.15f; } // red
+                else if (enemy.health == 2) { r=1.0f; g=0.75f; b=0.0f;  } // orange
+                else                        { r=0.9f; g=0.1f;  b=0.2f;  } // full = deep red
+                col = IM_COL32(int(r*255), int(g*255), int(b*255), int(alpha*255));
+            } else {
+                col = IM_COL32(60, 60, 60, int(alpha * 130)); // empty = dark grey
+            }
+            draw_heart(dl, hx, hy, HEART_R, col);
+        }
+
+        ImGui::End();
+        ImGui::PopStyleVar(2);
     }
 }
 
