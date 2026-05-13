@@ -6,8 +6,10 @@
 static ma_engine  g_engine;
 static ma_sound   g_shoot;
 static ma_sound   g_hurt;
+static ma_sound   g_door;
 static bool       g_shoot_ok  = false;
 static bool       g_hurt_ok   = false;
+static bool       g_door_ok   = false;
 static bool       g_engine_ok = false;
 
 void audio_init() {
