@@ -84,6 +84,13 @@ private:
         bool alive{true};
         float y_base{0.8f};
         double last_attack_time{-10.0};
+        int max_health{3};
+        glm::vec3 spawn_position{0.0f};
+        glm::vec3 spawn_euler{0.0f};
+        glm::vec3 spawn_scale{1.0f};
+        bool spawn_collides{false};
+        bool spawn_transparent{false};
+        float spawn_alpha{1.0f};
     };
 
     bool show_imgui{true};
@@ -137,6 +144,8 @@ private:
     std::unordered_set<Model*> orb_model_set;
 
     // Application state
+    enum class GameState { Menu, Playing, GameOver } game_state{GameState::Menu};
+    double game_state_enter_time{0.0};
     float bg_r = 0.1f, bg_g = 0.1f, bg_b = 0.15f;
     float tri_r = 0.0f, tri_g = 0.0f, tri_b = 1.0f;
     int player_health = 100;
@@ -144,6 +153,8 @@ private:
     bool gate_unlocked = false;
     bool collisions_enabled = true;
     bool show_collision_debug = false;
+    bool game_over{false};
+    double game_over_time{0.0};
     bool show_light_debug = false;
     bool show_trigger_debug = false;
     bool player_on_ground = true;
@@ -224,6 +235,9 @@ private:
                                    float alpha = 1.0f);
     void set_hud_message(const std::string& msg, float duration = 6.0f);
     void show_location_text(const std::string& msg, float duration = 5.5f);
+    void start_new_game();
+    void enter_game_over();
+    void reset_game_world();
     void update_gameplay(float delta_t, double now);
     void update_player_motion(float delta_t);
     void update_pit_state();
@@ -245,6 +259,8 @@ private:
     void draw_light_debug();
     void draw_trigger_debug();
     void draw_enemy_health_bars();
+    void draw_player_hud();
+    void draw_menu();
     void draw_orb_oit(const std::vector<std::shared_ptr<Model>>& oit_models);
 
     // information display routines
