@@ -39,6 +39,9 @@ set(PROJECT_SOURCES
     Texture.cpp
     Texture.hpp
     camera.hpp
+    audio.cpp
+    audio.hpp
+    miniaudio.h
 )
 
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})

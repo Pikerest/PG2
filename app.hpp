@@ -83,6 +83,7 @@ private:
         float bob_offset{0.0f};
         bool alive{true};
         float y_base{0.8f};
+        double last_attack_time{-10.0};
     };
 
     bool show_imgui{true};
@@ -243,6 +244,7 @@ private:
     void draw_collision_debug();
     void draw_light_debug();
     void draw_trigger_debug();
+    void draw_enemy_health_bars();
     void draw_orb_oit(const std::vector<std::shared_ptr<Model>>& oit_models);
 
     // information display routines
