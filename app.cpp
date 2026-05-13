@@ -10,6 +10,8 @@
 #include <sstream>
 #include <iomanip>
 #include <unordered_set>
+#include <filesystem>
+#include <cstdio>
 
 #if __has_include(<opencv2/opencv.hpp>)
     #include <opencv2/opencv.hpp>
@@ -41,6 +43,43 @@ using json = nlohmann::json;
 namespace {
 constexpr float DRAW_ALPHA_EPSILON = 0.001f;
 constexpr size_t MAX_PARTICLES = 128;
+
+bool is_asset_root(const std::filesystem::path& dir) {
+    return std::filesystem::exists(dir / "shader.vert") &&
+           std::filesystem::exists(dir / "shader.frag") &&
+           std::filesystem::is_directory(dir / "objects") &&
+           std::filesystem::is_directory(dir / "textures");
+}
+
+std::filesystem::path find_asset_root() {
+    auto dir = std::filesystem::current_path();
+    for (auto candidate = dir; !candidate.empty(); candidate = candidate.parent_path()) {
+        if (is_asset_root(candidate)) {
+            return candidate;
+        }
+        if (candidate == candidate.root_path()) {
+            break;
+        }
+    }
+
+#ifdef PG2_SOURCE_DIR
+    const auto source_dir = std::filesystem::path(PG2_SOURCE_DIR);
+    if (!source_dir.empty() && is_asset_root(source_dir)) {
+        return source_dir;
+    }
+#endif
+
+    return dir;
+}
+
+void set_asset_working_directory() {
+    const auto asset_root = find_asset_root();
+    const auto current = std::filesystem::current_path();
+    if (asset_root != current) {
+        std::filesystem::current_path(asset_root);
+        std::cout << "Working directory: " << asset_root.string() << '\n';
+    }
+}
 }
 
 static void GLAPIENTRY gl_debug_callback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
@@ -99,10 +138,10 @@ App::App()
 bool App::init() {
 
     try {
-        init_glfw();
-
+        set_asset_working_directory();
         load_config("config.json");
 
+        init_glfw();
         init_glew();
 
         init_gl_debug();
@@ -1222,6 +1261,18 @@ void App::init_assets(void) {
     Enemy ew7 = make_reactor_enemy("enemy_ew7", glm::vec3( 86.0f, 0.0f, -24.0f), 5.0f); // center reactor3
     enemies = { e1, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14,
                 ew1, ew2, ew3, ew4, ew5, ew6, ew7 };
+    for (auto& enemy : enemies) {
+        enemy.max_health = enemy.health;
+        if (!enemy.model) {
+            continue;
+        }
+        enemy.spawn_position = enemy.model->pivot_position;
+        enemy.spawn_euler = enemy.model->eulerAngles;
+        enemy.spawn_scale = enemy.model->scale;
+        enemy.spawn_collides = enemy.model->collides;
+        enemy.spawn_transparent = enemy.model->is_transparent;
+        enemy.spawn_alpha = enemy.model->material_alpha;
+    }
 
     model = add_box("levitating_orb", glm::vec3(0.0f, 3.7f, -12.5f), glm::vec3(2.6f), tex_terminal, false, 1.0f, true, 0.72f);
     model->emissive_color = glm::vec3(0.02f, 0.09f, 0.08f);
@@ -1327,13 +1378,15 @@ int App::run(void)
 		glCullFace(GL_BACK);
 		glDisable(GL_CULL_FACE);
 
-		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		// Start in menu — show cursor
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		glfwGetCursorPos(window, &cursorLastX, &cursorLastY);
 
 		update_projection_matrix();
 		glViewport(0, 0, width, height);
 
 		camera.Position = glm::vec3(0.0f, PLAYER_EYE_HEIGHT, 25.5f);
+		game_state_enter_time = glfwGetTime();
 		double last_frame_time = glfwGetTime();
 
 		while (!glfwWindowShouldClose(window))
@@ -1366,8 +1419,8 @@ int App::run(void)
 				ImGui::End();
 			}
 
-			// HUD overlay — always visible, fades out after hud_message_duration seconds
-			{
+			// HUD overlay — visible during gameplay, fades out after hud_message_duration seconds
+			if (game_state == GameState::Playing) {
 				const double elapsed = now - hud_message_time;
 				if (elapsed < hud_message_duration && !hud_message.empty()) {
 					float alpha = 1.0f;
@@ -1397,8 +1450,8 @@ int App::run(void)
 				}
 			}
 
-			// Elden Ring–style cinematic location overlay (full-screen, centered, fade in/hold/fade out)
-			{
+			// Cinematic location overlay (full-screen, centered, fade in/hold/fade out)
+			if (game_state == GameState::Playing) {
 				const double elapsed = now - location_message_time;
 				if (elapsed < location_message_duration && !location_message.empty()) {
 					// fade in 1.2s, hold, fade out last 1.5s
@@ -1463,11 +1516,15 @@ int App::run(void)
 			float delta_t = static_cast<float>(now - last_frame_time);
 			last_frame_time = now;
 
-			update_player_motion(delta_t);
-			camera.ProcessInput(window, delta_t, !collisions_enabled);
-			update_gameplay(delta_t, now);
-			apply_collisions(delta_t);
-			update_pit_state();
+			if (game_state == GameState::Playing) {
+				if (!game_over) {
+					update_player_motion(delta_t);
+					camera.ProcessInput(window, delta_t, !collisions_enabled);
+				}
+				update_gameplay(delta_t, now);
+				apply_collisions(delta_t);
+				update_pit_state();
+			}
 
 			if (model) {
 				model->eulerAngles.y = now * 50.0f;
@@ -1647,72 +1704,80 @@ int App::run(void)
 				draw_trigger_debug();
 			}
 
-			draw_enemy_health_bars();
-			// Floating hints above reactor buttons
-			for (int ri = 0; ri < (int)reactors.size(); ++ri) {
-				const auto& reactor = reactors[ri];
-				if (reactor.active || !reactor.button) continue;
-				const float rd = glm::distance(camera.Position, reactor.button->pivot_position);
-				if (rd > 6.0f) continue;
-				const glm::mat4 vpr = projection_matrix * view_matrix;
-				const glm::vec3 rwp = reactor.button->pivot_position + glm::vec3(0.0f, 1.2f, 0.0f);
-				const glm::vec4 rcl = vpr * glm::vec4(rwp, 1.0f);
-				if (rcl.w <= 0.0f) continue;
-				const glm::vec3 rnd = glm::vec3(rcl) / rcl.w;
-				if (std::abs(rnd.x) < 1.0f && std::abs(rnd.y) < 1.0f) {
-					const float rsx = (rnd.x * 0.5f + 0.5f) * width;
-					const float rsy = (1.0f - (rnd.y * 0.5f + 0.5f)) * height;
-					const float rfa = std::clamp(1.0f - (rd - 3.0f) / 3.0f, 0.0f, 1.0f);
-					constexpr ImGuiWindowFlags rf =
-						ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
-						ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
-						ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
-						ImGuiWindowFlags_NoFocusOnAppearing;
-					ImGui::SetNextWindowPos(ImVec2(rsx, rsy), ImGuiCond_Always, ImVec2(0.5f, 1.0f));
-					ImGui::SetNextWindowBgAlpha(0.55f * rfa);
-					ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-					ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 4.0f));
-					ImGui::Begin(("##rbtn_" + std::to_string(ri)).c_str(), nullptr, rf);
-					ImGui::SetWindowFontScale(1.15f);
-					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.9f, 1.0f, rfa));
-					ImGui::TextUnformatted("[ E ]  Activate reactor");
-					ImGui::PopStyleColor();
-					ImGui::End();
-					ImGui::PopStyleVar(2);
-				}
+			if (game_state == GameState::Playing) {
+				draw_player_hud();
+				draw_enemy_health_bars();
 			}
-			// Floating world-space hint above interactive button
-			if (!hidden_door_open && hidden_door_btn) {
-				const float d = glm::distance(camera.Position, hidden_door_btn->pivot_position);
-				if (d < 8.0f) {
-					const glm::mat4 vp2 = projection_matrix * view_matrix;
-					const glm::vec3 wp = hidden_door_btn->pivot_position + glm::vec3(0.0f, 1.4f, 0.0f);
-					const glm::vec4 cl = vp2 * glm::vec4(wp, 1.0f);
-					if (cl.w > 0.0f) {
-						const glm::vec3 nd = glm::vec3(cl) / cl.w;
-						if (std::abs(nd.x) < 1.0f && std::abs(nd.y) < 1.0f) {
-							const float sx2 = (nd.x * 0.5f + 0.5f) * width;
-							const float sy2 = (1.0f - (nd.y * 0.5f + 0.5f)) * height;
-							const float fa  = std::clamp(1.0f - (d - 4.0f) / 4.0f, 0.0f, 1.0f);
-							constexpr ImGuiWindowFlags hf =
-								ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
-								ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
-								ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
-								ImGuiWindowFlags_NoFocusOnAppearing;
-							ImGui::SetNextWindowPos(ImVec2(sx2, sy2), ImGuiCond_Always, ImVec2(0.5f, 1.0f));
-							ImGui::SetNextWindowBgAlpha(0.55f * fa);
-							ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-							ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 4.0f));
-							ImGui::Begin("##btn_hint", nullptr, hf);
-							ImGui::SetWindowFontScale(1.15f);
-							ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.65f, 0.1f, fa));
-							ImGui::TextUnformatted("[ E ]  Open hidden passage");
-							ImGui::PopStyleColor();
-							ImGui::End();
-							ImGui::PopStyleVar(2);
+			if (game_state == GameState::Playing) {
+				// Floating hints above reactor buttons
+				for (int ri = 0; ri < (int)reactors.size(); ++ri) {
+					const auto& reactor = reactors[ri];
+					if (reactor.active || !reactor.button) continue;
+					const float rd = glm::distance(camera.Position, reactor.button->pivot_position);
+					if (rd > 6.0f) continue;
+					const glm::mat4 vpr = projection_matrix * view_matrix;
+					const glm::vec3 rwp = reactor.button->pivot_position + glm::vec3(0.0f, 1.2f, 0.0f);
+					const glm::vec4 rcl = vpr * glm::vec4(rwp, 1.0f);
+					if (rcl.w <= 0.0f) continue;
+					const glm::vec3 rnd = glm::vec3(rcl) / rcl.w;
+					if (std::abs(rnd.x) < 1.0f && std::abs(rnd.y) < 1.0f) {
+						const float rsx = (rnd.x * 0.5f + 0.5f) * width;
+						const float rsy = (1.0f - (rnd.y * 0.5f + 0.5f)) * height;
+						const float rfa = std::clamp(1.0f - (rd - 3.0f) / 3.0f, 0.0f, 1.0f);
+						constexpr ImGuiWindowFlags rf =
+							ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+							ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
+							ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
+							ImGuiWindowFlags_NoFocusOnAppearing;
+						ImGui::SetNextWindowPos(ImVec2(rsx, rsy), ImGuiCond_Always, ImVec2(0.5f, 1.0f));
+						ImGui::SetNextWindowBgAlpha(0.55f * rfa);
+						ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+						ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 4.0f));
+						ImGui::Begin(("##rbtn_" + std::to_string(ri)).c_str(), nullptr, rf);
+						ImGui::SetWindowFontScale(1.15f);
+						ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.9f, 1.0f, rfa));
+						ImGui::TextUnformatted("[ E ]  Activate reactor");
+						ImGui::PopStyleColor();
+						ImGui::End();
+						ImGui::PopStyleVar(2);
+					}
+				}
+				// Floating world-space hint above interactive button
+				if (!hidden_door_open && hidden_door_btn) {
+					const float d = glm::distance(camera.Position, hidden_door_btn->pivot_position);
+					if (d < 8.0f) {
+						const glm::mat4 vp2 = projection_matrix * view_matrix;
+						const glm::vec3 wp = hidden_door_btn->pivot_position + glm::vec3(0.0f, 1.4f, 0.0f);
+						const glm::vec4 cl = vp2 * glm::vec4(wp, 1.0f);
+						if (cl.w > 0.0f) {
+							const glm::vec3 nd = glm::vec3(cl) / cl.w;
+							if (std::abs(nd.x) < 1.0f && std::abs(nd.y) < 1.0f) {
+								const float sx2 = (nd.x * 0.5f + 0.5f) * width;
+								const float sy2 = (1.0f - (nd.y * 0.5f + 0.5f)) * height;
+								const float fa  = std::clamp(1.0f - (d - 4.0f) / 4.0f, 0.0f, 1.0f);
+								constexpr ImGuiWindowFlags hf =
+									ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+									ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
+									ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
+									ImGuiWindowFlags_NoFocusOnAppearing;
+								ImGui::SetNextWindowPos(ImVec2(sx2, sy2), ImGuiCond_Always, ImVec2(0.5f, 1.0f));
+								ImGui::SetNextWindowBgAlpha(0.55f * fa);
+								ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+								ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 4.0f));
+								ImGui::Begin("##btn_hint", nullptr, hf);
+								ImGui::SetWindowFontScale(1.15f);
+								ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.65f, 0.1f, fa));
+								ImGui::TextUnformatted("[ E ]  Open hidden passage");
+								ImGui::PopStyleColor();
+								ImGui::End();
+								ImGui::PopStyleVar(2);
+							}
 						}
 					}
 				}
+			}
+			if (game_state != GameState::Playing) {
+				draw_menu();
 			}
 			draw_particles();
 
@@ -1927,10 +1992,13 @@ void App::update_gameplay(float delta_t, double now)
         it->second->emissive_color = hub_powered ? top_lamp_bright : top_lamp_dim;
     }
 
+	if (game_over) return;
+
 	// Sphere-AABB collision check for enemies — only walls/objects at same Y level
 	auto enemy_blocked = [&](const glm::vec3& pos) -> bool {
 		constexpr float ENEMY_R = 0.4f;
 		for (const auto& col : scene_colliders) {
+			if (!col || !col->collides) continue;
 			const glm::vec3 half = col->scale * 0.5f;
 			const glm::vec3 mn   = col->pivot_position - half;
 			const glm::vec3 mx   = col->pivot_position + half;
@@ -1979,7 +2047,11 @@ void App::update_gameplay(float delta_t, double now)
 			enemy.last_attack_time = now;
 			player_health = std::max(0, player_health - 10);
 			audio_play_hurt();
-			set_hud_message("Specimen contact — taking damage!");
+			if (player_health <= 0) {
+				enter_game_over();
+			} else {
+				set_hud_message("Specimen contact — taking damage!");
+			}
 		}
 	}
 
@@ -2108,13 +2180,125 @@ void App::update_pit_state()
 void App::respawn_player(const std::string& message)
 {
     camera.Position = glm::vec3(0.0f, PLAYER_EYE_HEIGHT, 25.5f);
+    camera.Front = glm::vec3(0.0f, 0.0f, -1.0f);
+    camera.Right = glm::normalize(glm::cross(camera.Front, camera.WorldUp));
+    camera.Up = glm::normalize(glm::cross(camera.Right, camera.Front));
+    camera.Yaw = -90.0f;
+    camera.Pitch = 0.0f;
     player_vertical_offset = 0.0f;
     player_vertical_velocity = 0.0f;
     view_bob_phase = 0.0f;
     view_bob_offset = 0.0f;
     player_on_ground = true;
     player_health = 100;
-    set_hud_message(message);
+    firstMouse = true;
+    if (!message.empty()) {
+        set_hud_message(message);
+    }
+}
+
+void App::reset_game_world()
+{
+    game_over = false;
+    game_over_time = 0.0;
+    player_health = 100;
+    reactors_active = 0;
+    gate_unlocked = false;
+    hidden_door_open = false;
+    particles.clear();
+    last_shot_time = -10.0;
+    last_fire_particle_time = glfwGetTime();
+    hud_message.clear();
+    location_message.clear();
+
+    respawn_player("");
+
+    for (auto& tz : trigger_zones) {
+        tz.fired = false;
+    }
+
+    for (auto& reactor : reactors) {
+        reactor.active = false;
+        if (reactor.model) {
+            reactor.model->material_alpha = 0.55f;
+            reactor.model->collides = true;
+        }
+        if (reactor.button) {
+            reactor.button->collides = true;
+            reactor.button->scale = glm::vec3(0.8f, 0.35f, 0.8f);
+            reactor.button->material_alpha = 1.0f;
+        }
+    }
+
+    if (gate_model) {
+        gate_model->pivot_position = glm::vec3(0.0f, 1.8f, -39.2f);
+        gate_model->collides = true;
+        gate_model->material_alpha = 1.0f;
+    }
+
+    for (auto& panel : hub_door_panels) {
+        if (!panel) {
+            continue;
+        }
+        panel->collides = true;
+        panel->material_alpha = 1.0f;
+    }
+
+    if (hidden_door_wall) {
+        hidden_door_wall->pivot_position = glm::vec3(81.5f, 2.0f, -24.0f);
+        hidden_door_wall->collides = true;
+        hidden_door_wall->material_alpha = 1.0f;
+        hidden_door_wall->emissive_color = glm::vec3(0.04f, 0.04f, 0.05f);
+    }
+    if (hidden_door_btn) {
+        hidden_door_btn->pivot_position = glm::vec3(78.0f, 0.60f, -38.0f);
+        hidden_door_btn->eulerAngles = glm::vec3(0.0f);
+        hidden_door_btn->scale = glm::vec3(0.9f, 0.45f, 0.9f);
+        hidden_door_btn->collides = true;
+        hidden_door_btn->material_alpha = 1.0f;
+        hidden_door_btn->emissive_color = glm::vec3(0.6f, 0.2f, 0.0f);
+    }
+
+    for (auto& enemy : enemies) {
+        enemy.health = enemy.max_health;
+        enemy.alive = true;
+        enemy.last_attack_time = -10.0;
+        if (!enemy.model) {
+            continue;
+        }
+        enemy.model->pivot_position = enemy.spawn_position;
+        enemy.model->eulerAngles = enemy.spawn_euler;
+        enemy.model->scale = enemy.spawn_scale;
+        enemy.model->collides = enemy.spawn_collides;
+        enemy.model->is_transparent = enemy.spawn_transparent;
+        enemy.model->material_alpha = enemy.spawn_alpha;
+    }
+
+    set_hud_message("GOAL: activate all reactors and unlock the containment gate.", 6.0f);
+}
+
+void App::start_new_game()
+{
+    reset_game_world();
+    game_state = GameState::Playing;
+    game_state_enter_time = glfwGetTime();
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    firstMouse = true;
+}
+
+void App::enter_game_over()
+{
+    if (game_state == GameState::GameOver) {
+        return;
+    }
+
+    game_over = true;
+    game_over_time = glfwGetTime();
+    game_state = GameState::GameOver;
+    game_state_enter_time = game_over_time;
+    hud_message.clear();
+    location_message.clear();
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
 
 void App::activate_nearest_reactor()
@@ -2197,6 +2381,10 @@ void App::toggle_all_reactors()
 
 void App::fire_weapon()
 {
+	if (game_state != GameState::Playing || game_over) {
+		return;
+	}
+
 	const double now = glfwGetTime();
 	if (now - last_shot_time < 0.18) {
 		return;
@@ -2268,6 +2456,25 @@ bool App::ray_hits_sphere(const glm::vec3& ray_origin,
 void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 	auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
+	if (this_inst->game_state == App::GameState::Menu && action == GLFW_PRESS &&
+	    (key == GLFW_KEY_SPACE || key == GLFW_KEY_ENTER)) {
+		this_inst->start_new_game();
+		return;
+	}
+	if (this_inst->game_state == App::GameState::GameOver && action == GLFW_PRESS &&
+	    (key == GLFW_KEY_SPACE || key == GLFW_KEY_ENTER)) {
+		this_inst->start_new_game();
+		return;
+	}
+	if (this_inst->game_state != App::GameState::Playing) {
+		if (action == GLFW_PRESS && key == GLFW_KEY_ESCAPE) {
+			glfwSetWindowShouldClose(window, GLFW_TRUE);
+		}
+		if (action == GLFW_PRESS && key == GLFW_KEY_G) {
+			this_inst->show_imgui = !this_inst->show_imgui;
+		}
+		return;
+	}
 	if ((action == GLFW_PRESS) || (action == GLFW_REPEAT)) {
 		switch (key) {
 		case GLFW_KEY_ESCAPE:
@@ -2366,13 +2573,16 @@ void App::glfw_fbsize_callback(GLFWwindow* window, int width, int height) {
 
 void App::glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
 	if (action == GLFW_PRESS) {
+		auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
+		if (this_inst->game_state != App::GameState::Playing) {
+			return;
+		}
 		switch (button) {
 		case GLFW_MOUSE_BUTTON_LEFT: {
 			int mode = glfwGetInputMode(window, GLFW_CURSOR);
 			if (mode == GLFW_CURSOR_NORMAL) {
 				glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 			} else {
-				auto this_inst = static_cast<App*>(glfwGetWindowUserPointer(window));
 				this_inst->fire_weapon();
 			}
 			break;
@@ -2547,6 +2757,9 @@ void App::apply_collisions(float delta_t) {
     bool supported = player_vertical_offset <= 0.02f && (!is_over_hub_pit() || is_over_hub_walkway());
 
     for (auto& obj : scene_colliders) {
+        if (!obj || !obj->collides) {
+            continue;
+        }
         if (try_resolve_camera_top_collision(obj, CAMERA_RADIUS)) {
             supported = true;
             continue;
@@ -2767,6 +2980,185 @@ static void draw_heart(ImDrawList* dl, float cx, float cy, float r, ImU32 col) {
         ImVec2(cx - r, cy + r * 0.05f),
         ImVec2(cx + r, cy + r * 0.05f),
         ImVec2(cx,     cy + r), col);
+}
+
+void App::draw_menu()
+{
+    const bool is_go = (game_state == GameState::GameOver);
+    const ImVec2 viewport_size(static_cast<float>(width), static_cast<float>(height));
+    const ImGuiWindowFlags overlay_flags =
+        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBackground;
+
+    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(viewport_size, ImGuiCond_Always);
+    ImGui::Begin("##menu_backdrop", nullptr, overlay_flags);
+    ImDrawList* bg = ImGui::GetWindowDrawList();
+    const ImU32 shade = ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 0.0f, 0.0f, is_go ? 0.78f : 0.62f));
+    bg->AddRectFilled(ImVec2(0.0f, 0.0f), viewport_size, shade);
+    bg->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(viewport_size.x, viewport_size.y * 0.16f),
+                      ImGui::ColorConvertFloat4ToU32(ImVec4(0.00f, 0.04f, 0.05f, 0.34f)));
+    bg->AddRectFilled(ImVec2(0.0f, viewport_size.y * 0.78f), viewport_size,
+                      ImGui::ColorConvertFloat4ToU32(ImVec4(0.02f, 0.02f, 0.02f, 0.38f)));
+    ImGui::End();
+
+    const float panel_w = std::clamp(viewport_size.x - 96.0f, 420.0f, 760.0f);
+    const float panel_h = is_go ? 292.0f : 420.0f;
+    const ImVec2 panel_pos(viewport_size.x * 0.5f - panel_w * 0.5f,
+                           viewport_size.y * 0.5f - panel_h * 0.5f);
+    const double t = glfwGetTime() - game_state_enter_time;
+    const float pulse = 0.64f + 0.36f * std::sin(static_cast<float>(t) * 3.8f);
+
+    ImGui::SetNextWindowPos(panel_pos, ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(panel_w, panel_h), ImGuiCond_Always);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(34.0f, 28.0f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.025f, 0.033f, 0.040f, 0.96f));
+    ImGui::PushStyleColor(ImGuiCol_Border, is_go ? ImVec4(0.95f, 0.18f, 0.12f, 0.70f)
+                                                 : ImVec4(0.20f, 0.84f, 0.86f, 0.70f));
+    ImGui::Begin("##menu", nullptr,
+                 ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
+                 ImGuiWindowFlags_NoTitleBar);
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const ImVec2 p = ImGui::GetWindowPos();
+    const ImVec2 s = ImGui::GetWindowSize();
+    const ImU32 accent = is_go ? IM_COL32(230, 52, 38, 230) : IM_COL32(60, 210, 220, 230);
+    const ImU32 accent_dim = is_go ? IM_COL32(230, 52, 38, 78) : IM_COL32(60, 210, 220, 78);
+    dl->AddRectFilled(p, ImVec2(p.x + 7.0f, p.y + s.y), accent);
+    dl->AddLine(ImVec2(p.x + 22.0f, p.y + 78.0f), ImVec2(p.x + s.x - 30.0f, p.y + 78.0f), accent_dim, 1.5f);
+    dl->AddRect(p, ImVec2(p.x + s.x, p.y + s.y), accent_dim, 0.0f, 0, 2.0f);
+
+    if (is_go) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.20f, 0.15f, 1.0f));
+        ImGui::SetWindowFontScale(2.1f);
+        ImGui::TextUnformatted("GAME OVER");
+        ImGui::PopStyleColor();
+        ImGui::SetWindowFontScale(1.0f);
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::TextWrapped("Your suit flatlined in the containment sector. The facility is resetting the simulation from the first checkpoint.");
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.86f, 0.72f, 0.92f));
+        ImGui::TextUnformatted("SPACE / ENTER  Restart from the beginning");
+        ImGui::TextUnformatted("ESC            Quit");
+        ImGui::PopStyleColor();
+    } else {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.78f, 0.98f, 1.0f, 1.0f));
+        ImGui::SetWindowFontScale(2.15f);
+        ImGui::TextUnformatted("FACILITY X-7");
+        ImGui::PopStyleColor();
+        ImGui::SetWindowFontScale(1.0f);
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.62f, 0.86f, 0.90f, 1.0f));
+        ImGui::TextUnformatted("Containment Recovery Protocol");
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::TextWrapped("You wake inside an abandoned research complex after a containment failure. Specimens are loose, power is unstable, and the main gate is locked.");
+        ImGui::Spacing();
+        ImGui::TextWrapped("Mission: activate all three reactors, reopen the containment gate, and survive long enough to reach the exit.");
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.84f, 0.92f, 0.92f, 0.95f));
+        ImGui::Columns(2, "##controls", false);
+        ImGui::TextUnformatted("WASD");
+        ImGui::NextColumn();
+        ImGui::TextUnformatted("Move");
+        ImGui::NextColumn();
+        ImGui::TextUnformatted("Mouse / LMB");
+        ImGui::NextColumn();
+        ImGui::TextUnformatted("Look / Fire");
+        ImGui::NextColumn();
+        ImGui::TextUnformatted("E / Shift");
+        ImGui::NextColumn();
+        ImGui::TextUnformatted("Interact / Sprint");
+        ImGui::NextColumn();
+        ImGui::TextUnformatted("Space");
+        ImGui::NextColumn();
+        ImGui::TextUnformatted("Jump");
+        ImGui::Columns(1);
+        ImGui::PopStyleColor();
+    }
+
+    const char* prompt = is_go ? "PRESS SPACE TO RESTART" : "PRESS SPACE TO START";
+    const ImVec2 prompt_size = ImGui::CalcTextSize(prompt);
+    const float prompt_x = p.x + (s.x - prompt_size.x) * 0.5f;
+    const float prompt_y = p.y + s.y - 48.0f;
+    dl->AddText(ImVec2(prompt_x + 1.0f, prompt_y + 1.0f), IM_COL32(0, 0, 0, 200), prompt);
+    dl->AddText(ImVec2(prompt_x, prompt_y),
+                ImGui::ColorConvertFloat4ToU32(ImVec4(0.86f, 1.0f, 1.0f, 0.48f + 0.52f * pulse)),
+                prompt);
+
+    ImGui::End();
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(2);
+}
+
+void App::draw_player_hud()
+{
+    const float hp_pct = std::clamp(player_health / 100.0f, 0.0f, 1.0f);
+    const bool critical = player_health <= 25;
+    const float panel_w = std::clamp(static_cast<float>(width) * 0.34f, 360.0f, 560.0f);
+    const float panel_h = 76.0f;
+    const float x = 28.0f;
+    const float y = static_cast<float>(height) - panel_h - 26.0f;
+
+    constexpr ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+        ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+        ImGuiWindowFlags_NoBackground;
+
+    ImGui::SetNextWindowPos(ImVec2(x, y), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(panel_w, panel_h), ImGuiCond_Always);
+    ImGui::Begin("##hud_health", nullptr, flags);
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const ImVec2 p = ImGui::GetWindowPos();
+    const float pulse = critical ? (0.45f + 0.55f * std::sin(static_cast<float>(glfwGetTime()) * 9.0f)) : 0.0f;
+
+    const ImU32 panel_bg = IM_COL32(7, 12, 15, 205);
+    const ImU32 panel_edge = critical ? IM_COL32(235, 58, 42, 210) : IM_COL32(55, 205, 214, 190);
+    const ImU32 bar_bg = IM_COL32(12, 18, 22, 235);
+    const ImVec2 panel_min(p.x, p.y);
+    const ImVec2 panel_max(p.x + panel_w, p.y + panel_h);
+    dl->AddRectFilled(panel_min, panel_max, panel_bg, 4.0f);
+    dl->AddRect(panel_min, panel_max, panel_edge, 4.0f, 0, 2.0f);
+    dl->AddRectFilled(panel_min, ImVec2(panel_min.x + 6.0f, panel_max.y), panel_edge, 4.0f);
+
+    const ImVec2 bar_min(p.x + 22.0f, p.y + 36.0f);
+    const ImVec2 bar_max(p.x + panel_w - 22.0f, p.y + 60.0f);
+    const float bar_w = bar_max.x - bar_min.x;
+    const ImU32 fill_col =
+        hp_pct > 0.55f ? IM_COL32(64, 218, 132, 245) :
+        hp_pct > 0.25f ? IM_COL32(238, 184, 64, 245) :
+                         IM_COL32(232, 56, 42, 245);
+    dl->AddRectFilled(bar_min, bar_max, bar_bg, 3.0f);
+    dl->AddRectFilled(bar_min, ImVec2(bar_min.x + bar_w * hp_pct, bar_max.y), fill_col, 3.0f);
+    dl->AddRect(bar_min, bar_max, IM_COL32(220, 245, 245, 95), 3.0f, 0, 1.0f);
+
+    for (int i = 1; i < 10; ++i) {
+        const float sx = bar_min.x + bar_w * (static_cast<float>(i) / 10.0f);
+        dl->AddLine(ImVec2(sx, bar_min.y + 3.0f), ImVec2(sx, bar_max.y - 3.0f), IM_COL32(0, 0, 0, 80), 1.0f);
+    }
+
+    if (critical) {
+        dl->AddRect(panel_min, panel_max,
+                    ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.12f, 0.08f, 0.18f + 0.32f * pulse)),
+                    4.0f, 0, 4.0f);
+    }
+
+    char hp_text[32];
+    snprintf(hp_text, sizeof(hp_text), "%d / 100", player_health);
+    dl->AddText(ImVec2(p.x + 22.0f, p.y + 13.0f), IM_COL32(210, 242, 242, 235), "VITALS");
+    const ImVec2 hp_size = ImGui::CalcTextSize(hp_text);
+    dl->AddText(ImVec2(p.x + panel_w - 22.0f - hp_size.x, p.y + 13.0f),
+                critical ? IM_COL32(255, 124, 96, 245) : IM_COL32(230, 252, 252, 235),
+                hp_text);
+    ImGui::End();
 }
 
 void App::draw_enemy_health_bars()
