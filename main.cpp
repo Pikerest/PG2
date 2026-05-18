@@ -1,36 +1,18 @@
-// icp.cpp
-// author: JJ
+/*
+ * Program entry point.
+ * Creates the App instance, asks Windows laptops to prefer the dedicated GPU,
+ * and then starts the application lifecycle from main().
+ */
 
 #include <iostream>
 #include <chrono>
-#include <stack>
-#include <random>
-
-// OpenCV (does not depend on GL)
-#if __has_include(<opencv2/opencv.hpp>)
-    #include <opencv2/opencv.hpp>
-#elif __has_include(<opencv4/opencv2/opencv.hpp>)
-    #include <opencv4/opencv2/opencv.hpp>
-#else
-    #error "OpenCV hlavičkové soubory nebyly nalezeny!"
-#endif
-
-// OpenGL Extension Wrangler: allow all multiplatform GL functions
-#include <GL/glew.h>
-// WGLEW = Windows GL Extension Wrangler (change for different platform)
-// platform specific functions (in this case Windows)
-
-// GLFW toolkit
-// Uses GL calls to open GL context, i.e. GLEW __MUST__ be first.
-#include <GLFW/glfw3.h>
-
-// OpenGL math (and other additional GL libraries, at the end)
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
+#include <cstdlib>
 
 #include "app.hpp"
 
 #ifdef _WIN32
+// Hint for hybrid-GPU laptops: prefer the dedicated NVIDIA/AMD GPU
+// instead of the integrated adapter when creating the OpenGL context.
 extern "C" {
     __declspec(dllexport) unsigned long NvOptimusEnablement = 1;
     __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
@@ -39,6 +21,9 @@ extern "C" {
 
 App app;
 
+// Minimal entry point:
+// initialize App, run the frame loop, print total runtime, and return the
+// application exit code from App::run().
 int main()
 {
     using clock = std::chrono::steady_clock;

@@ -8,7 +8,6 @@ if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-find_package(fmt CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(GLEW REQUIRED)
@@ -30,6 +29,11 @@ set(PROJECT_SOURCES
     assets.hpp
     app.cpp
     app.hpp
+    app_input.cpp
+    app_collision.cpp
+    app_gameplay.cpp
+    app_assets.cpp
+    app_render.cpp
     ShaderProgram.cpp
     ShaderProgram.hpp
     OBJloader.cpp
@@ -55,7 +59,6 @@ if(MSVC)
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    fmt::fmt
     GLEW::GLEW
     glfw
     imgui::imgui

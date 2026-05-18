@@ -1,13 +1,20 @@
 #pragma once
 
+/*
+ * Central App interface and shared state.
+ * Declares the scene, game, render, input, and collision state used by the
+ * App methods implemented across app.cpp and the app_*.cpp files.
+ */
+
 // Standard headers
 #include <array>
 #include <vector>
 #include <string>
 #include <unordered_set>
 
-// Third-party headers
-#include "GLFW/glfw3.h"
+// GLFWwindow is stored only as a pointer here; implementation files include
+// the full GLFW header before using GLFW functions/constants.
+struct GLFWwindow;
 
 // Project headers
 #include "assets.hpp"
@@ -17,7 +24,8 @@
 
 #include "camera.hpp"
 
-// Light data structures
+// Directional light is the global fill/key light.
+// It behaves like light from infinitely far away, so it has direction only.
 struct DirectionalLight {
     glm::vec3 direction = glm::vec3(0.0f, -1.0f, -1.0f);
     glm::vec3 ambient = glm::vec3(0.2f, 0.2f, 0.2f);
@@ -25,6 +33,8 @@ struct DirectionalLight {
     glm::vec3 specular = glm::vec3(1.0f, 1.0f, 1.0f);
 };
 
+// Point light is a local spherical light source with attenuation radius.
+// Most lamps in the facility are represented by these.
 struct PointLight {
     glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 ambient = glm::vec3(0.2f, 0.2f, 0.2f);
@@ -33,6 +43,7 @@ struct PointLight {
     float radius = 100.0f;
 };
 
+// Spotlight follows the player camera and acts like a flashlight.
 struct SpotLight {
     glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 direction = glm::vec3(0.0f, -1.0f, 0.0f);
@@ -54,11 +65,7 @@ protected:
     // all objects of the scene (for paiters algorithm)
     std::unordered_map<std::string, std::shared_ptr<Model>> scene;
 
-    // Mouse control
-    glm::vec3 camera_front{ 0.0f, 0.0f, -1.0f };
-    float yaw = -90.0f;
-    float pitch = 0.0f;
-    float lastX = 400, lastY = 300;
+    // Mouse-look state for relative cursor movement.
     bool firstMouse = true;
 
     glm::mat4 view_matrix = glm::identity<glm::mat4>();
@@ -70,6 +77,7 @@ protected:
 
 
 private:
+    // Reactor pairs a glowing reactor model with its floor/button control.
     struct Reactor {
         std::shared_ptr<Model> model;
         std::shared_ptr<Model> button;
@@ -77,6 +85,8 @@ private:
         bool active{false};
     };
 
+    // Enemy stores both runtime state and original spawn state so the game can
+    // reset without reloading assets.
     struct Enemy {
         std::shared_ptr<Model> model;
         int health{3};
@@ -99,7 +109,7 @@ private:
     int window_height = 600;
     std::string window_title = "OpenGL context ";
     bool is_vsync_on = true;
-    //new GL stuff
+    // Window/fullscreen state.
     bool fullscreen_enabled = false;
     int saved_window_x = 0;
     int saved_window_y = 0;
@@ -113,8 +123,11 @@ private:
 
     GLFWwindow* window = nullptr;
 
+    // Core render resources.
     std::shared_ptr<ShaderProgram> shader_prog;
     std::shared_ptr<ShaderProgram> oit_composite_prog;
+
+    // Important gameplay/scene object handles.
     std::shared_ptr<Model> model;
     std::shared_ptr<Model> inner_orb_model;
     std::vector<std::shared_ptr<Model>> orb_layer_models;
@@ -131,8 +144,6 @@ private:
 
     // Frustum planes (updated each frame)
     std::array<glm::vec4, 6> frustum_planes{};
-    int active_light_type = 0;
-    int active_light_index = 0;
 
     // Persistent render lists — cleared each frame, avoids per-frame heap alloc
     std::vector<std::shared_ptr<Model>> render_opaque;
@@ -143,11 +154,9 @@ private:
     // Orb model pointers, built once in init_assets
     std::unordered_set<Model*> orb_model_set;
 
-    // Application state
+    // Application and gameplay state.
     enum class GameState { Menu, Playing, GameOver } game_state{GameState::Menu};
     double game_state_enter_time{0.0};
-    float bg_r = 0.1f, bg_g = 0.1f, bg_b = 0.15f;
-    float tri_r = 0.0f, tri_g = 0.0f, tri_b = 1.0f;
     int player_health = 100;
     int reactors_active = 0;
     bool gate_unlocked = false;
@@ -172,6 +181,7 @@ private:
     double location_message_time{-100.0};
     float  location_message_duration{5.5f};
 
+    // Trigger zones show large location text once when the player enters them.
     struct TriggerZone {
         glm::vec3 position;
         float radius;
@@ -199,7 +209,7 @@ private:
     static constexpr float PLAYER_EYE_HEIGHT = 1.2f;
     static constexpr float DEATH_PIT_Y = -9.0f;
 
-    // Particle System
+    // Particle System and OIT GPU resources.
     struct Particle {
         glm::vec3 position;
         glm::vec3 velocity;
@@ -217,7 +227,7 @@ private:
     int oit_width{0};
     int oit_height{0};
 
-    // initialization helpers
+    // Initialization, asset creation, and app lifecycle helpers.
     void init_imgui(void);
     void init_opencv(void);
     void init_glfw(void);
@@ -235,6 +245,7 @@ private:
                                    float alpha = 1.0f);
     void set_hud_message(const std::string& msg, float duration = 6.0f);
     void show_location_text(const std::string& msg, float duration = 5.5f);
+    // Gameplay helpers.
     void start_new_game();
     void enter_game_over();
     void reset_game_world();
@@ -251,10 +262,12 @@ private:
                          const glm::vec3& sphere_center,
                          float sphere_radius,
                          float& hit_distance) const;
+    // Collision helpers.
     void resolve_camera_box_collision(const std::shared_ptr<Model>& obj, float camera_radius);
     bool try_resolve_camera_top_collision(const std::shared_ptr<Model>& obj, float camera_radius);
     bool is_over_hub_pit() const;
     bool is_over_hub_walkway() const;
+    // Rendering helpers.
     void draw_collision_debug();
     void draw_light_debug();
     void draw_trigger_debug();
@@ -289,7 +302,6 @@ public:
     static void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void glfw_fbsize_callback(GLFWwindow* window, int width, int height);
     static void glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
-    static void glfw_cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
     static void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos);
     static void glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
     void update_projection_matrix(void);

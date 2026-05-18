@@ -35,6 +35,18 @@ compile_commands.json
 
 # Logs
 *.log
+stderr.txt
+stdout.txt
+app_log.txt
+
+# Runtime screenshots
+screenshot_*.png
+
+# Local AI/tool settings
+.claude/
+
+# Temporary extracted/downloaded assets
+_tmp_assets/
 
 .vscode/
 imgui.ini
