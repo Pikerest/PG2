@@ -26,7 +26,8 @@ constexpr float DRAW_ALPHA_EPSILON = 0.001f;
 constexpr std::size_t MAX_PARTICLES = 128;
 }
 
-// Helper — draws a heart icon using ImGui primitives
+// Helper: draws a heart icon using three simple ImGui primitives.
+// This avoids a separate texture asset for small enemy health indicators.
 static void draw_heart(ImDrawList* dl, float cx, float cy, float r, ImU32 col) {
     dl->AddCircleFilled(ImVec2(cx - r * 0.5f, cy - r * 0.2f), r * 0.62f, col, 16);
     dl->AddCircleFilled(ImVec2(cx + r * 0.5f, cy - r * 0.2f), r * 0.62f, col, 16);
@@ -48,6 +49,8 @@ void App::draw_collision_debug()
     glDepthMask(GL_FALSE);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
+    // Draw every collider through the normal model path, but with the shader in
+    // debug color mode and polygon mode set to wireframe.
     for (auto& [name, obj] : scene) {
         if (!obj->collides) continue;
         obj->draw();
@@ -125,6 +128,8 @@ void App::draw_trigger_debug()
         if (clip.w <= 0.0f) continue;
         const glm::vec3 ndc = glm::vec3(clip) / clip.w;
         if (std::abs(ndc.x) > 1.0f || std::abs(ndc.y) > 1.0f) continue;
+
+        // Convert normalized device coordinates [-1, 1] to framebuffer pixels.
         const float sx = (ndc.x * 0.5f + 0.5f) * width;
         const float sy = (1.0f - (ndc.y * 0.5f + 0.5f)) * height;
 
@@ -162,6 +167,9 @@ void App::draw_menu()
     ImGui::SetNextWindowSize(viewport_size, ImGuiCond_Always);
     ImGui::Begin("##menu_backdrop", nullptr, overlay_flags);
     ImDrawList* bg = ImGui::GetWindowDrawList();
+
+    // Fullscreen dark overlay keeps menu text readable while still showing
+    // some of the rendered world behind it.
     const ImU32 shade = ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 0.0f, 0.0f, is_go ? 0.78f : 0.62f));
     bg->AddRectFilled(ImVec2(0.0f, 0.0f), viewport_size, shade);
     bg->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(viewport_size.x, viewport_size.y * 0.16f),
@@ -177,6 +185,8 @@ void App::draw_menu()
     const double t = glfwGetTime() - game_state_enter_time;
     const float pulse = 0.64f + 0.36f * std::sin(static_cast<float>(t) * 3.8f);
 
+    // The centered panel is purely immediate-mode UI, so it scales from the
+    // current framebuffer size and does not depend on external images.
     ImGui::SetNextWindowPos(panel_pos, ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(panel_w, panel_h), ImGuiCond_Always);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
@@ -344,6 +354,9 @@ void App::draw_enemy_health_bars()
         const glm::vec3 world_pos = enemy.model->pivot_position + glm::vec3(0.0f, 2.0f, 0.0f);
         const glm::vec4 clip = vp * glm::vec4(world_pos, 1.0f);
         if (clip.w <= 0.0f) continue;
+
+        // Skip enemies behind the camera or outside the screen to avoid
+        // unnecessary ImGui windows.
         const glm::vec3 ndc = glm::vec3(clip) / clip.w;
         if (std::abs(ndc.x) > 1.0f || std::abs(ndc.y) > 1.0f) continue;
         const float sx = (ndc.x * 0.5f + 0.5f) * static_cast<float>(width);
@@ -390,6 +403,8 @@ void App::draw_orb_oit(const std::vector<std::shared_ptr<Model>>& oit_models)
 
     setup_oit_buffers(width, height);
 
+    // Copy the main depth buffer into the OIT framebuffer so transparent orb
+    // layers are still hidden by opaque world geometry.
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, oit_fbo);
     glBlitFramebuffer(0, 0, width, height,
@@ -412,6 +427,7 @@ void App::draw_orb_oit(const std::vector<std::shared_ptr<Model>>& oit_models)
     glBlendFunci(0, GL_ONE, GL_ONE);
     glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
 
+    // First pass accumulates weighted color and revealage into two targets.
     shader_prog->use();
     shader_prog->setUniform("u_oit_pass", 1);
     for (const auto& orb : oit_models) {
@@ -431,6 +447,9 @@ void App::draw_orb_oit(const std::vector<std::shared_ptr<Model>>& oit_models)
     glBindTextureUnit(0, oit_accum_tex);
     glBindTextureUnit(1, oit_reveal_tex);
     glBindVertexArray(fullscreen_vao);
+
+    // Fullscreen triangle composites the accumulated transparent result back
+    // over the already-rendered opaque scene.
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
     glBindVertexArray(0);
@@ -456,6 +475,7 @@ void App::spawn_particles(const glm::vec3& position, int count) {
     const size_t free_slots  = MAX_PARTICLES - particles.size();
     const int    spawn_count = std::min<int>(count, static_cast<int>(free_slots));
 
+    // Random radial velocity gives every burst a quick explosive look.
     for (int i = 0; i < spawn_count; i++) {
         Particle p;
         p.position = position;
@@ -479,6 +499,7 @@ void App::update_particles(float delta_t) {
         p.velocity.y += GRAVITY * delta_t;
         p.position   += p.velocity * delta_t;
         if (p.position.y < 0.0f) {
+            // Cheap bounce on the floor plane: lose energy and invert Y.
             p.position.y = 0.0f;
             p.velocity  *= glm::vec3(ATTENUATION, -ATTENUATION, ATTENUATION);
         }
@@ -501,6 +522,8 @@ void App::draw_particles() {
 
     for (auto& p : particles) {
         const float life_ratio = 1.0f - (p.age / p.lifetime);
+
+        // Particle template is reused to avoid allocating per-particle models.
         particle_template->pivot_position = p.position;
         particle_template->scale          = glm::vec3(p.scale);
         particle_template->eulerAngles.y  = p.age * 180.0f;

@@ -1,3 +1,9 @@
+/*
+ * Minimal Wavefront OBJ parser.
+ * Handles v/vt/vn/f lines, triangle faces, duplicated vertex compaction,
+ * and fallback normals/UVs for simple models that do not contain all data.
+ */
+
 #include <string>
 #include <algorithm>
 #include <GL/glew.h>
@@ -13,6 +19,7 @@ bool loadOBJ(const std::filesystem::path& filename, std::vector<Vertex>& vertice
 {
 	std::cout << "Opening OBJ file: " << filename.string() << std::endl;
 
+	// Raw OBJ attribute streams are 1-based and referenced by each face token.
 	std::vector< glm::vec3 > temp_vertices;
 	std::vector< glm::vec2 > temp_uvs;
 	std::vector< glm::vec3 > temp_normals;
@@ -37,6 +44,7 @@ bool loadOBJ(const std::filesystem::path& filename, std::vector<Vertex>& vertice
 		ss >> head;
 
 		if (head == "v") {
+			// Position vertex.
 			glm::vec3 vertex;
 			if (!(ss >> vertex.x >> vertex.y >> vertex.z)) {
 				std::cerr << "Error parsing vertex at line " << lineNum << std::endl;
@@ -45,6 +53,8 @@ bool loadOBJ(const std::filesystem::path& filename, std::vector<Vertex>& vertice
 			temp_vertices.push_back(vertex);
 		}
 		else if (head == "vt") {
+			// Texture coordinate. OBJ may include an optional third component;
+			// this loader only needs u/v.
 			glm::vec2 uv;
 			if (!(ss >> uv.x >> uv.y)) {
 				// vt can have 3 components (u, v, w), we only need 2
@@ -55,6 +65,7 @@ bool loadOBJ(const std::filesystem::path& filename, std::vector<Vertex>& vertice
 			temp_uvs.push_back(uv);
 		}
 		else if (head == "vn") {
+			// Normal vector.
 			glm::vec3 normal;
 			if (!(ss >> normal.x >> normal.y >> normal.z)) {
 				std::cerr << "Error parsing normal at line " << lineNum << std::endl;
@@ -63,6 +74,8 @@ bool loadOBJ(const std::filesystem::path& filename, std::vector<Vertex>& vertice
 			temp_normals.push_back(normal);
 		}
 		else if (head == "f") {
+			// Project assets are triangulated, so exactly three face vertices
+			// are read from each face line.
 			struct FaceVertex { unsigned int v, t, n; };
 			FaceVertex face[3];
 			bool hasNormals = true;
@@ -101,7 +114,7 @@ bool loadOBJ(const std::filesystem::path& filename, std::vector<Vertex>& vertice
 				face[i] = { vIdx, tIdx, nIdx };
 			}
 
-			// Determine face normal for cases without normals
+			// Determine a flat face normal for cases without normals.
 			glm::vec3 faceNormal = glm::vec3(0.0f, 0.0f, 1.0f);
 			if (!hasNormals && temp_vertices.size() >= 3) {
 				glm::vec3 p0 = temp_vertices[face[0].v - 1];
@@ -110,6 +123,8 @@ bool loadOBJ(const std::filesystem::path& filename, std::vector<Vertex>& vertice
 				faceNormal = glm::normalize(glm::cross(p1 - p0, p2 - p0));
 			}
 
+			// Build planar fallback UVs from the dominant face axis. This keeps
+			// unwrapped OBJ files visibly textured instead of solid black.
 			auto compute_fallback_uv = [&](const glm::vec3 &pos, const glm::vec3 &normal) {
 				glm::vec3 an = glm::abs(normal);
 				if (an.x >= an.y && an.x >= an.z) {
@@ -127,6 +142,7 @@ bool loadOBJ(const std::filesystem::path& filename, std::vector<Vertex>& vertice
 				v.Normal = (face[i].n > 0 && face[i].n <= temp_normals.size()) ? temp_normals[face[i].n - 1] : faceNormal;
 				v.TexCoords = (face[i].t > 0 && face[i].t <= temp_uvs.size()) ? temp_uvs[face[i].t - 1] : compute_fallback_uv(v.Position, v.Normal);
 
+				// Reuse identical vertex records to keep the mesh indexed.
 				auto it = std::find(vertices.begin(), vertices.end(), v);
 				if (it == vertices.end()) {
 					vertices.push_back(v);

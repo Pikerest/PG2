@@ -42,6 +42,8 @@ using json = nlohmann::json;
 namespace {
 constexpr float DRAW_ALPHA_EPSILON = 0.001f;
 
+// A directory is considered the asset root when it contains the files/folders
+// used by the renderer. This avoids hard-coding one launch directory.
 bool is_asset_root(const std::filesystem::path& dir) {
     return std::filesystem::exists(dir / "shader.vert") &&
            std::filesystem::exists(dir / "shader.frag") &&
@@ -51,6 +53,9 @@ bool is_asset_root(const std::filesystem::path& dir) {
 
 std::filesystem::path find_asset_root() {
     auto dir = std::filesystem::current_path();
+
+    // First walk upward from the current process directory. This covers normal
+    // launches from build/, build/Debug/, or the repository root.
     for (auto candidate = dir; !candidate.empty(); candidate = candidate.parent_path()) {
         if (is_asset_root(candidate)) {
             return candidate;
@@ -61,6 +66,7 @@ std::filesystem::path find_asset_root() {
     }
 
 #ifdef PG2_SOURCE_DIR
+    // CMake provides this path as a final reliable fallback for IDE runs.
     const auto source_dir = std::filesystem::path(PG2_SOURCE_DIR);
     if (!source_dir.empty() && is_asset_root(source_dir)) {
         return source_dir;
@@ -396,6 +402,8 @@ int App::run(void)
 			if (game_state == GameState::Playing) {
 				const double elapsed = now - hud_message_time;
 				if (elapsed < hud_message_duration && !hud_message.empty()) {
+					// HUD messages stay fully visible, then fade during the
+					// last 1.5 seconds of their configured lifetime.
 					float alpha = 1.0f;
 					const double fade_start = hud_message_duration - 1.5;
 					if (elapsed > fade_start)
@@ -454,6 +462,9 @@ int App::run(void)
 					ImGui::SetWindowFontScale(scale);
 					const char* txt = location_message.c_str();
 					ImVec2 tsz = ImGui::CalcTextSize(txt);
+
+					// Manual draw-list text gives precise shadow/line styling
+					// without creating extra ImGui widgets.
 					float tx = (width  - tsz.x) * 0.5f;
 					float ty = (height - tsz.y) * 0.5f - tsz.y * 0.15f;
 
@@ -524,6 +535,8 @@ int App::run(void)
 			}
 
 			if (!spot_lights.empty()) {
+				// Flashlight follows the camera with a slight offset so it
+				// appears to come from the player's hands/suit.
 				spot_lights[0].position = camera.Position + camera.Front * 0.18f - camera.Up * 0.12f;
 				spot_lights[0].direction = glm::normalize(camera.Front);
 			}
@@ -630,6 +643,8 @@ int App::run(void)
 					if (!model_obj || model_obj->material_alpha <= DRAW_ALPHA_EPSILON)
 						continue;
 
+					// Orb layers are routed to OIT because ordinary back-to-front
+					// sorting breaks down for nested transparent shells.
 					if (!model_obj->is_transparent) {
 						if (in_frustum(model_obj->getPosition(), model_obj->get_cull_radius()))
 							render_opaque.emplace_back(model_obj);
@@ -664,6 +679,9 @@ int App::run(void)
 						const glm::vec3 da = camera.Position - a->getPosition();
 						const glm::vec3 db = camera.Position - b->getPosition();
 						const float fda = glm::dot(da, da), fdb = glm::dot(db, db);
+
+						// Back-to-front sorting is still used for ordinary glass
+						// and UI-like transparent props.
 						if (std::abs(fda - fdb) > 0.001f) return fda > fdb;
 						return glm::length(a->scale) > glm::length(b->scale);
 					});
@@ -705,6 +723,8 @@ int App::run(void)
 					if (rcl.w <= 0.0f) continue;
 					const glm::vec3 rnd = glm::vec3(rcl) / rcl.w;
 					if (std::abs(rnd.x) < 1.0f && std::abs(rnd.y) < 1.0f) {
+						// Project the 3D button position into ImGui pixel space
+						// for a floating interaction prompt.
 						const float rsx = (rnd.x * 0.5f + 0.5f) * width;
 						const float rsy = (1.0f - (rnd.y * 0.5f + 0.5f)) * height;
 						const float rfa = std::clamp(1.0f - (rd - 3.0f) / 3.0f, 0.0f, 1.0f);
@@ -856,6 +876,8 @@ void App::setup_oit_buffers(int buffer_width, int buffer_height)
     oit_width = buffer_width;
     oit_height = buffer_height;
 
+    // Weighted blended OIT needs two color targets: accumulated color and
+    // revealage. A depth texture is attached so the pass can depth-test.
     glCreateFramebuffers(1, &oit_fbo);
 
     constexpr GLsizei oit_samples = 4;

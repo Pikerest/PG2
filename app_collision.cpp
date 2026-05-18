@@ -31,6 +31,9 @@ void App::apply_collisions(float delta_t) {
     camera.Position.y = current_camera_eye_y();
 
     const float CAMERA_RADIUS = 0.4f;
+
+    // The player is supported when feet are on ordinary floor/walkway. Low
+    // props can also set support through try_resolve_camera_top_collision().
     bool supported = player_vertical_offset <= 0.02f && (!is_over_hub_pit() || is_over_hub_walkway());
 
     for (auto& obj : scene_colliders) {
@@ -59,6 +62,9 @@ void App::resolve_camera_box_collision(const std::shared_ptr<Model>& obj, float 
     const float yaw = glm::radians(obj->eulerAngles.y);
     const float c = std::cos(yaw);
     const float s = std::sin(yaw);
+
+    // Convert player position into the collider's local yaw space. This makes
+    // the overlap test work for rotated boxes such as railings and angled props.
     const glm::vec3 delta(
         c * world_delta.x - s * world_delta.z,
         world_delta.y,
@@ -74,6 +80,8 @@ void App::resolve_camera_box_collision(const std::shared_ptr<Model>& obj, float 
     const float overlap_x = half_extents.x - std::abs(delta.x);
     const float overlap_z = half_extents.z - std::abs(delta.z);
 
+    // Push along the axis with the smallest overlap. That feels better than
+    // pushing diagonally and prevents the player from sticking on corners.
     if (overlap_x < overlap_z) {
         const float push = delta.x < 0.0f ? -overlap_x : overlap_x;
         camera.Position.x += c * push;
@@ -98,6 +106,9 @@ bool App::try_resolve_camera_top_collision(const std::shared_ptr<Model>& obj, fl
     const float yaw = glm::radians(obj->eulerAngles.y);
     const float c = std::cos(yaw);
     const float s = std::sin(yaw);
+
+    // Same local-space test as side collisions, but only to check whether the
+    // player's feet are above the collider footprint.
     const glm::vec3 delta(
         c * world_delta.x - s * world_delta.z,
         world_delta.y,
@@ -110,6 +121,9 @@ bool App::try_resolve_camera_top_collision(const std::shared_ptr<Model>& obj, fl
 
     const float feet_y = camera.Position.y - PLAYER_EYE_HEIGHT;
     const float top_y = obj->pivot_position.y + obj->scale.y * 0.5f;
+
+    // The tolerances let the player step onto low geometry without requiring
+    // exact contact with the mathematical top plane.
     const bool close_to_top = feet_y >= top_y - 0.55f && feet_y <= top_y + 0.35f;
 
     if (!close_to_top || player_vertical_velocity > 0.0f) {
@@ -135,6 +149,9 @@ bool App::is_over_hub_pit() const
 bool App::is_over_hub_walkway() const
 {
     const glm::vec2 p(camera.Position.x, camera.Position.z + 12.5f);
+
+    // These boxes approximate the hub platform layout. They intentionally
+    // mirror the visual catwalk dimensions from app_assets.cpp.
     const bool center_platform = std::abs(p.x) <= 6.3f  && std::abs(p.y) <= 6.3f;
     const bool orb_pedestal    = std::abs(p.x) <= 3.15f && std::abs(p.y) <= 3.15f;
     const bool west_catwalk    = p.x >= -23.7f && p.x <= -5.65f && std::abs(p.y) <= 1.55f;

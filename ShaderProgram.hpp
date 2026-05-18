@@ -1,5 +1,11 @@
 #pragma once
 
+/*
+ * OpenGL shader program helper.
+ * Compiles vertex/fragment GLSL, links a program, caches uniform locations,
+ * and provides typed setUniform overloads used throughout the renderer.
+ */
+
 #include <string>
 #include <filesystem>
 #include <unordered_map>
@@ -14,12 +20,16 @@ class ShaderProgram : private NonCopyable {
 public:
     ShaderProgram(void) = delete; 
 
+    // Compile and link directly from GLSL source strings.
     ShaderProgram(std::string const & vertex_shader_code, std::string const & fragment_shader_code);
     
+    // Convenience path used by App::init_assets().
     static std::shared_ptr<ShaderProgram> from_files(std::filesystem::path const & VS_file, std::filesystem::path const & FS_file) {
         return std::make_shared<ShaderProgram>(textFileRead_static(VS_file), textFileRead_static(FS_file));
     }
 
+    // Avoid redundant glUseProgram calls. The render loop switches shaders
+    // often enough that this small cache keeps state changes cleaner.
     void use(void) {  
         if (ID == currently_used_ID)
             return;
@@ -41,6 +51,8 @@ public:
     GLuint getID(void) { return ID; }
     GLint  getAttribLocation(const std::string & name);
     
+    // Uniform helpers use glProgramUniform*, so the program does not need to
+    // be currently bound just to upload data.
     void setUniform(const std::string & name, const GLfloat val);      
     void setUniform(const std::string & name, const GLint val);        
     void setUniform(const std::string & name, const glm::vec2 & val);
@@ -54,11 +66,17 @@ public:
 
 private:
     GLuint ID{0}; 
+
+    // Tracks currently bound shader across all ShaderProgram instances.
     inline static GLuint currently_used_ID{0};
+
+    // Uniform location lookup is cached because OpenGL string queries are
+    // relatively expensive and happen every frame.
     std::unordered_map<std::string, GLuint> uniform_location_cache;
 
     GLuint getUniformLocation(const std::string & name);
 
+    // File loading, shader compilation, and link helpers.
     std::string textFileRead(const std::filesystem::path & filename); 
     static std::string textFileRead_static(const std::filesystem::path & filename); 
 

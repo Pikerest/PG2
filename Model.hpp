@@ -1,5 +1,12 @@
 #pragma once
 
+/*
+ * Scene object wrapper.
+ * A Model stores a world transform plus one or more Mesh packages. It also
+ * carries lightweight gameplay/render flags such as transparency, collision,
+ * emissive color, and culling radius.
+ */
+
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -19,17 +26,20 @@
 
 class Model {
 public:
-    // origin point of whole model
+    // World transform for the whole model.
     glm::vec3 pivot_position{};
     glm::vec3 eulerAngles{};
     glm::vec3 scale{1.0f};
 
-    float mesh_cull_radius{0.866f};  // max vertex distance from origin in model space
+    // Max vertex distance from model origin in model space. Used for cheap
+    // frustum culling after scaling.
+    float mesh_cull_radius{0.866f};
 
     float get_cull_radius() const {
         return mesh_cull_radius * std::max({std::abs(scale.x), std::abs(scale.y), std::abs(scale.z)});
     }
 
+    // Material/render switches read by Model::draw() and the main renderer.
     bool is_transparent{false};
     float material_alpha{1.0f}; // 1.0 = full opaque 0 = transparent
     glm::vec3 emissive_color{0.0f};
@@ -37,16 +47,18 @@ public:
     bool swap_texture_axes{false};
     bool two_sided_lighting{false};
 
-    // Collision detection
+    // Collision detection uses simple boxes/spheres around models, not mesh
+    // triangles. This keeps movement cheap enough for every frame.
     float bounding_radius{0.5f};
     bool collides{false};
 
-    // Get world position of model
+    // Get world position of model; kept for clearer call sites.
     glm::vec3 getPosition() const {
         return pivot_position;
     }
 
-    // mesh data
+    // One mesh package can have its own local transform and texture while
+    // still inheriting the Model world transform.
     struct mesh_package {
         std::shared_ptr<Mesh> mesh;
         std::shared_ptr<ShaderProgram> shader;
@@ -55,7 +67,11 @@ public:
         glm::vec3 scale;
         std::shared_ptr<Texture> texture;
 
-        glm::mat4 local_matrix{glm::mat4(1.0f)};        // precomputed mT*mR*mS (never changes)
+        // Local matrix is precomputed because sub-mesh transforms are static.
+        glm::mat4 local_matrix{glm::mat4(1.0f)};
+
+        // Final matrices are mutable so draw() can refresh the cache even when
+        // the Model is referenced through a const mesh_package loop variable.
         mutable glm::mat4 cached_final_m{glm::mat4(1.0f)};
         mutable glm::mat3 cached_normal_m{glm::mat3(1.0f)};
 
@@ -71,6 +87,9 @@ public:
     std::vector<mesh_package> meshes;
 
     Model() = default;
+
+    // Load a single OBJ file into a one-mesh model.
+    // Generated box models use this path too through add_box().
     Model(const std::filesystem::path & filename, std::shared_ptr<ShaderProgram> shader, std::shared_ptr<Texture> texture = nullptr) {
         std::vector<Vertex> vertices;
         std::vector<GLuint> indices;
@@ -91,13 +110,16 @@ public:
                  glm::vec3 scale = glm::vec3(1.0f),
                  std::shared_ptr<Texture> texture = nullptr
                  ) {
+        // Expands culling radius to cover all sub-meshes.
         if (mesh)
             mesh_cull_radius = std::max(mesh_cull_radius, mesh->get_mesh_bounding_radius());
         meshes.emplace_back(mesh, shader, origin, eulerAngles, scale, texture);
     }
 
-    // update based on running time
+    // Reserved for future per-model animation. Current animations are driven
+    // directly from App gameplay/render code.
     void update(const float delta_t) {
+        (void)delta_t;
     }
 
     void draw() {
@@ -120,6 +142,7 @@ public:
         for (auto const& mesh_pkg : meshes) {
             mesh_pkg.shader->use();
 
+            // These uniforms are common to every shader used by scene models.
             mesh_pkg.shader->setUniform("u_material_alpha", material_alpha);
             mesh_pkg.shader->setUniform("u_emissive", emissive_color);
             mesh_pkg.shader->setUniform("u_tex_scale", texture_scale);
@@ -134,6 +157,8 @@ public:
     }
 
 private:
+    // Last transform used for matrix cache. Sentinel values force the first
+    // draw call to compute matrices.
     mutable glm::vec3 _cpivot{1e30f, 1e30f, 1e30f};
     mutable glm::vec3 _ceuler{1e30f, 1e30f, 1e30f};
     mutable glm::vec3 _cscale{1e30f, 1e30f, 1e30f};

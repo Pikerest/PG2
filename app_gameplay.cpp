@@ -43,6 +43,9 @@ void App::update_gameplay(float delta_t, double now)
     const float light_power     = hub_powered ? 1.55f : 0.34f;
     const float top_light_power = hub_powered ? 2.05f : 0.48f;
 
+    // Index 5 is the orb light and is overridden below. Keeping it in this
+    // fixed profile array makes the first six point light slots easy to reason
+    // about when comparing with app_assets.cpp.
     const std::array<PointLight, 6> hub_light_profiles = {
         PointLight{ glm::vec3(  0.0f, 14.6f, -12.5f), glm::vec3(0.040f, 0.052f, 0.050f), glm::vec3(1.05f, 1.45f, 1.30f), glm::vec3(0.14f, 0.22f, 0.20f), 56.0f },
         PointLight{ glm::vec3(-21.5f,  4.8f, -12.5f), glm::vec3(0.018f, 0.030f, 0.030f), glm::vec3(0.42f, 0.78f, 0.70f), glm::vec3(0.06f, 0.12f, 0.11f), 28.0f },
@@ -64,6 +67,9 @@ void App::update_gameplay(float delta_t, double now)
     // Reactor room light flicker (indices 6–17 = R1+R2 lamps, 30-35 = R3)
     if (point_lights.size() > 17) {
         const float t = static_cast<float>(now);
+
+        // Sum several sine waves to make the lamps feel unstable without
+        // requiring random state or per-light timers.
         const float r1 = std::max(0.05f, 0.50f + 0.45f * std::sin(t * 7.3f)
                                         + 0.25f * std::sin(t * 19.7f + 0.8f)
                                         + 0.10f * std::sin(t * 43.1f));
@@ -124,6 +130,8 @@ void App::update_gameplay(float delta_t, double now)
 			const glm::vec3 mn   = col->pivot_position - half;
 			const glm::vec3 mx   = col->pivot_position + half;
 			if (pos.y < mn.y || pos.y > mx.y) continue;
+
+			// Closest point on the AABB to the enemy sphere center.
 			const float cx = std::clamp(pos.x, mn.x, mx.x);
 			const float cz = std::clamp(pos.z, mn.z, mx.z);
 			const float dx = pos.x - cx, dz = pos.z - cz;
@@ -150,6 +158,9 @@ void App::update_gameplay(float delta_t, double now)
 		if (xz_dist > STOP_DIST && xz_dist < CHASE_RADIUS) {
 			const glm::vec3 dir  = glm::normalize(glm::vec3(to_player.x, 0.0f, to_player.z));
 			const glm::vec3 base = enemy.model->pivot_position;
+
+			// Resolve X and Z independently so enemies can slide along walls
+			// instead of stopping completely at shallow angles.
 			glm::vec3 try_x = base; try_x.x += dir.x * SPEED * delta_t;
 			glm::vec3 try_z = base; try_z.z += dir.z * SPEED * delta_t;
 			if (!enemy_blocked(try_x)) enemy.model->pivot_position.x = try_x.x;
@@ -256,6 +267,9 @@ void App::update_player_motion(float delta_t)
     if (!player_on_ground) {
         player_vertical_velocity += PLAYER_GRAVITY * delta_t;
         player_vertical_offset += player_vertical_velocity * delta_t;
+
+        // Landing is disabled over the open hub pit so the player keeps
+        // falling until update_pit_state() respawns them below DEATH_PIT_Y.
         const bool over_open_pit = is_over_hub_pit() && !is_over_hub_walkway();
         if (player_vertical_offset <= 0.0f && !over_open_pit) {
             player_vertical_offset = 0.0f;
@@ -334,9 +348,11 @@ void App::reset_game_world()
 
     respawn_player("");
 
+    // One-shot trigger text should be visible again after restarting.
     for (auto& tz : trigger_zones)
         tz.fired = false;
 
+    // Restore reactors/buttons to their inactive, collidable state.
     for (auto& reactor : reactors) {
         reactor.active = false;
         if (reactor.model) {
@@ -377,6 +393,7 @@ void App::reset_game_world()
         hidden_door_btn->emissive_color  = glm::vec3(0.6f, 0.2f, 0.0f);
     }
 
+    // Enemy spawn snapshots were captured in init_assets().
     for (auto& enemy : enemies) {
         enemy.health = enemy.max_health;
         enemy.alive = true;
@@ -449,6 +466,9 @@ void App::activate_nearest_reactor()
 	}
 
 	nearest->active = true;
+
+	// Activated reactors become mostly visual: the glass fades up and the
+	// button/collider no longer blocks movement.
 	nearest->model->material_alpha = 0.85f;
 	nearest->model->collides = false;
 	if (nearest->button) {
@@ -516,6 +536,8 @@ void App::fire_weapon()
 	float best_hit = std::numeric_limits<float>::max();
 	Enemy* hit_enemy = nullptr;
 
+	// Pick the closest enemy intersected by the ray so shots behave correctly
+	// when enemies overlap in screen space.
 	for (auto& enemy : enemies) {
 		if (!enemy.alive || !enemy.model) continue;
 		float hit_distance = 0.0f;
@@ -558,6 +580,8 @@ bool App::ray_hits_sphere(const glm::vec3& ray_origin,
                           float& hit_distance) const
 {
 	const glm::vec3 oc = ray_origin - sphere_center;
+
+	// Quadratic ray/sphere intersection with ray_dir assumed normalized.
 	const float b = 2.0f * glm::dot(oc, ray_dir);
 	const float c = glm::dot(oc, oc) - sphere_radius * sphere_radius;
 	const float discriminant = b * b - 4.0f * c;

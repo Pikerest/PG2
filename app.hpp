@@ -57,12 +57,15 @@ struct SpotLight {
 class App {
 
 protected:
-    // projection
+    // Projection/window-sized render state.
     int width{0}, height{0};
     float fov = 60.0f;
-    // store projection matrix here, update only on callbacks
+
+    // Store projection matrix here and update it only when size/FOV changes.
     glm::mat4 projection_matrix = glm::identity<glm::mat4>();
-    // all objects of the scene (for paiters algorithm)
+
+    // All named scene objects. The render loop builds sorted draw lists from
+    // this map every frame.
     std::unordered_map<std::string, std::shared_ptr<Model>> scene;
 
     // Mouse-look state for relative cursor movement.
@@ -109,7 +112,8 @@ private:
     int window_height = 600;
     std::string window_title = "OpenGL context ";
     bool is_vsync_on = true;
-    // Window/fullscreen state.
+    // Window/fullscreen state saved so fullscreen can restore exact windowed
+    // position and size.
     bool fullscreen_enabled = false;
     int saved_window_x = 0;
     int saved_window_y = 0;
@@ -123,11 +127,13 @@ private:
 
     GLFWwindow* window = nullptr;
 
-    // Core render resources.
+    // Core render resources: main material shader plus OIT composite shader.
     std::shared_ptr<ShaderProgram> shader_prog;
     std::shared_ptr<ShaderProgram> oit_composite_prog;
 
-    // Important gameplay/scene object handles.
+    // Important gameplay/scene object handles. Most objects are still in
+    // scene; these pointers make frequently animated/interactive objects cheap
+    // to access from gameplay/render code.
     std::shared_ptr<Model> model;
     std::shared_ptr<Model> inner_orb_model;
     std::vector<std::shared_ptr<Model>> orb_layer_models;
@@ -137,12 +143,13 @@ private:
     bool hidden_door_open{false};
     std::vector<std::shared_ptr<Model>> hub_door_panels;
 
-    // Lighting
+    // Lighting data is stored in world space here, then uploaded in view space
+    // by the main render loop.
     DirectionalLight dir_light;
     std::vector<PointLight> point_lights;
     std::vector<SpotLight> spot_lights;
 
-    // Frustum planes (updated each frame)
+    // Frustum planes (updated each frame) for cheap sphere culling.
     std::array<glm::vec4, 6> frustum_planes{};
 
     // Persistent render lists — cleared each frame, avoids per-frame heap alloc
@@ -195,7 +202,8 @@ private:
     std::vector<glm::vec3> fire_sources;
     std::shared_ptr<Model> light_debug_marker;
 
-    // Map boundaries
+    // Map and player tuning constants shared by movement, collision, and
+    // gameplay reset logic.
     static constexpr float MAP_MIN_X = -92.0f;
     static constexpr float MAP_MAX_X =  98.0f;
     static constexpr float MAP_MIN_Z = -55.0f;
@@ -210,6 +218,7 @@ private:
     static constexpr float DEATH_PIT_Y = -9.0f;
 
     // Particle System and OIT GPU resources.
+    // OIT = weighted blended order-independent transparency for the hub orb.
     struct Particle {
         glm::vec3 position;
         glm::vec3 velocity;
@@ -228,6 +237,7 @@ private:
     int oit_height{0};
 
     // Initialization, asset creation, and app lifecycle helpers.
+    // Implemented mostly in app.cpp and app_assets.cpp.
     void init_imgui(void);
     void init_opencv(void);
     void init_glfw(void);
@@ -245,7 +255,7 @@ private:
                                    float alpha = 1.0f);
     void set_hud_message(const std::string& msg, float duration = 6.0f);
     void show_location_text(const std::string& msg, float duration = 5.5f);
-    // Gameplay helpers.
+    // Gameplay helpers implemented in app_gameplay.cpp.
     void start_new_game();
     void enter_game_over();
     void reset_game_world();
@@ -262,12 +272,12 @@ private:
                          const glm::vec3& sphere_center,
                          float sphere_radius,
                          float& hit_distance) const;
-    // Collision helpers.
+    // Collision helpers implemented in app_collision.cpp.
     void resolve_camera_box_collision(const std::shared_ptr<Model>& obj, float camera_radius);
     bool try_resolve_camera_top_collision(const std::shared_ptr<Model>& obj, float camera_radius);
     bool is_over_hub_pit() const;
     bool is_over_hub_walkway() const;
-    // Rendering helpers.
+    // Rendering helpers implemented in app_render.cpp.
     void draw_collision_debug();
     void draw_light_debug();
     void draw_trigger_debug();
@@ -285,6 +295,7 @@ private:
 public:
     App();
 
+    // Public lifecycle entry points used by main.cpp.
     bool init(void);
     void init_assets(void);
     bool load_config(const std::string& filename);
@@ -298,7 +309,7 @@ public:
     void update_particles(float delta_t);
     void draw_particles();
 
-    // Callbacks
+    // GLFW callbacks. Static callbacks recover App* from the GLFW user pointer.
     static void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void glfw_fbsize_callback(GLFWwindow* window, int width, int height);
     static void glfw_mouse_button_callback(GLFWwindow* window, int button, int action, int mods);

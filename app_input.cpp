@@ -55,6 +55,7 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
 		switch (key) {
 		case GLFW_KEY_ESCAPE:
 			{
+				// ESC first releases mouse capture; pressing it again exits.
 				int mode = glfwGetInputMode(window, GLFW_CURSOR);
 				if (mode == GLFW_CURSOR_DISABLED) {
 					glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -98,6 +99,9 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
 				this_inst->collisions_enabled = !this_inst->collisions_enabled;
 				this_inst->set_hud_message(this_inst->collisions_enabled ? "Collision enabled." : "Noclip enabled.");
 				if (this_inst->collisions_enabled) {
+					// When returning from noclip, rebuild the vertical player
+					// state from the current camera height so gravity continues
+					// without a sudden snap.
 					this_inst->player_vertical_offset = std::max(0.0f, this_inst->camera.Position.y - App::PLAYER_EYE_HEIGHT);
 					this_inst->player_vertical_velocity = 0.0f;
 					this_inst->player_on_ground = this_inst->player_vertical_offset <= 0.05f;
@@ -180,11 +184,14 @@ void App::glfw_mouse_button_callback(GLFWwindow* window, int button, int action,
 void App::cursorPositionCallback(GLFWwindow* window, double xpos, double ypos) {
     auto app = static_cast<App*>(glfwGetWindowUserPointer(window));
 	if (glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED) {
+		// Reset delta tracking while cursor is free so the next capture does
+		// not produce a huge camera jump.
 		app->firstMouse = true;
 		return;
 	}
 
     if (app->firstMouse) {
+        // First captured mouse event seeds the previous position only.
         app->cursorLastX = xpos;
         app->cursorLastY = ypos;
         app->firstMouse = false;
@@ -238,6 +245,8 @@ void App::toggle_fullscreen() {
 		int center_x = xpos + width / 2;
 		int center_y = ypos + height / 2;
 
+		// Pick the monitor that currently contains the window center. This
+		// avoids jumping to the primary monitor in multi-monitor setups.
 		for (int i = 0; i < monitor_count; i++) {
 			int mx, my;
 			const GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
@@ -276,6 +285,8 @@ void App::take_screenshot() {
 
 	cv::Mat img(height, width, CV_8UC3);
 
+	// Read the backbuffer after the frame has been rendered. GL_BGR matches
+	// OpenCV's default channel order, avoiding an extra color conversion.
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	glReadPixels(0, 0, width, height, GL_BGR, GL_UNSIGNED_BYTE, img.data);
 

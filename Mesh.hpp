@@ -1,5 +1,11 @@
 #pragma once
 
+/*
+ * GPU mesh resource.
+ * Owns a VAO/VBO and optional index buffer, plus an optional texture binding.
+ * Mesh is non-copyable because OpenGL buffer handles have single ownership.
+ */
+
 #include <string>
 #include <vector>
 
@@ -15,14 +21,15 @@
 class Mesh: private NonCopyable
 {
 public:
-    // force attribute slots in shaders for all meshes, shaders etc.
+    // Fixed attribute slots shared with ShaderProgram::link_shader().
     static constexpr GLuint attribute_location_position{0};
     static constexpr GLuint attribute_location_normal{1};
     static constexpr GLuint attribute_location_texture_coords{2};
 
     Mesh() = delete; 
     
-    // Simple mesh from vertices
+    // Create a non-indexed mesh from vertices.
+    // Direct State Access calls configure the VAO without rebinding global state.
     Mesh(std::vector<Vertex> const &vertices, GLenum primitive_type) : primitive_type_{primitive_type}, vertices_{vertices}
     {
         for (const auto& v : vertices_)
@@ -48,7 +55,8 @@ public:
         glVertexArrayAttribBinding(vao_, attribute_location_texture_coords, 0);
     }
          
-    // Mesh with indirect vertex addressing. Needs compiled shader for attributes setup. 
+    // Create an indexed mesh. The base constructor sets vertex layout, then
+    // this constructor adds the element buffer.
     Mesh(std::vector<Vertex> const &vertices, std::vector<GLuint> const &indices, GLenum primitive_type) :
         Mesh{vertices, primitive_type}
     {
@@ -60,6 +68,8 @@ public:
 
     float get_mesh_bounding_radius() const { return mesh_bounding_radius_; }
 
+    // Bind VAO/texture and issue the correct draw call for indexed or
+    // non-indexed geometry.
     void draw() {
         if (texture_) {
             texture_->bind(0);
@@ -77,6 +87,7 @@ public:
         texture_ = texture;
     }
 
+    // Free GPU resources owned by this mesh.
     ~Mesh() {
     	glDeleteBuffers(1, &ebo_);
     	glDeleteBuffers(1, &vbo_);
@@ -89,8 +100,7 @@ private:
     std::vector<GLuint> indices_;
     float mesh_bounding_radius_{0.0f};
     
-    // OpenGL buffer IDs
-    // ID = 0 is reserved (i.e. uninitalized)
+    // OpenGL buffer IDs. ID = 0 means "not created".
     GLuint vao_{0};
     GLuint vbo_{0};
     GLuint ebo_{0};

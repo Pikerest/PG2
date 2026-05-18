@@ -1,3 +1,9 @@
+/*
+ * Shader compilation/linking implementation.
+ * All errors are printed with the driver info log and then raised as
+ * exceptions so App::init() can fail cleanly.
+ */
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -18,6 +24,8 @@ ShaderProgram::ShaderProgram(const std::string & vertex_shader_code, const std::
     ID = link_shader(shader_ids);
 }
 
+// Returns a cached uniform location. Missing uniforms are reported because
+// they usually mean a typo or an optimized-out value in the GLSL program.
 GLuint ShaderProgram::getUniformLocation(const std::string & name) {
     if (uniform_location_cache.contains(name)) {
         return uniform_location_cache[name];
@@ -32,6 +40,7 @@ GLuint ShaderProgram::getUniformLocation(const std::string & name) {
     return loc;
 }
 
+// Debug helper for attributes that are not bound through fixed locations.
 GLint ShaderProgram::getAttribLocation(const std::string & name) {
     GLint loc = glGetAttribLocation(ID, name.c_str());
     if (loc == -1) {
@@ -40,6 +49,7 @@ GLint ShaderProgram::getAttribLocation(const std::string & name) {
     return loc;
 }
 
+// Scalar/vector/matrix uniform overloads.
 void ShaderProgram::setUniform(const std::string& name, const GLfloat val) {
     glProgramUniform1f(ID, getUniformLocation(name), val);
 }
@@ -80,6 +90,7 @@ void ShaderProgram::setUniform(const std::string & name, const std::vector<glm::
     glProgramUniform3fv(ID, getUniformLocation(name), val.size(), glm::value_ptr(val[0]));
 }
     
+// Read compile log from a shader object.
 std::string ShaderProgram::getShaderInfoLog(const GLuint obj) {
     int log_length = 0;
     std::string s;
@@ -92,6 +103,7 @@ std::string ShaderProgram::getShaderInfoLog(const GLuint obj) {
     return s;
 }
 
+// Read link log from a program object.
 std::string ShaderProgram::getProgramInfoLog(const GLuint obj) {
     int log_length = 0;
     std::string s;
@@ -104,6 +116,7 @@ std::string ShaderProgram::getProgramInfoLog(const GLuint obj) {
     return s;
 }
 
+// Compile one GLSL stage and throw when the driver rejects it.
 GLuint ShaderProgram::compile_shader(const std::string & source_code, const GLenum type) {
     char const *src_cstr = source_code.c_str();
     GLuint shader_ID = glCreateShader(type);
@@ -121,6 +134,8 @@ GLuint ShaderProgram::compile_shader(const std::string & source_code, const GLen
     return shader_ID;
 }
 
+// Link shaders into a program. Attribute locations are bound explicitly so the
+// Mesh VAO layout and GLSL input layout stay consistent.
 GLuint ShaderProgram::link_shader(const std::vector<GLuint> shader_ids) {
 	GLuint prog_ID = glCreateProgram();
 
@@ -155,6 +170,7 @@ std::string ShaderProgram::textFileRead(const std::filesystem::path& filepath) {
     return textFileRead_static(filepath);
 }
 
+// Simple whole-file read for shader source.
 std::string ShaderProgram::textFileRead_static(const std::filesystem::path& filepath) {
 	std::ifstream file(filepath);
 	if (!file.is_open())

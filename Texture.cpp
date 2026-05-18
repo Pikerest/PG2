@@ -1,6 +1,14 @@
+/*
+ * Texture loading and upload implementation.
+ * OpenCV reads image files into CPU memory; OpenGL Direct State Access creates
+ * and fills immutable 2D textures.
+ */
+
 #include "Texture.hpp"
 #include <iostream>
 
+// Builds a tiny black/white checkerboard fallback. It helps spot accidental
+// missing texture assignments without crashing the renderer.
 GLuint Texture::gen_ckboard(void) {
     if (ckboard_ == 0 || glIsTexture(ckboard_) != GL_TRUE) {
         glCreateTextures(GL_TEXTURE_2D, 1, &ckboard_);
@@ -21,6 +29,7 @@ GLuint Texture::gen_ckboard(void) {
     return ckboard_;
 }
 
+// Throws on missing files so asset problems fail early during initialization.
 cv::Mat Texture::load_image(const std::filesystem::path& path) {
     cv::Mat image = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
     if (image.empty()) {
@@ -31,19 +40,25 @@ cv::Mat Texture::load_image(const std::filesystem::path& path) {
 
 Texture::Texture(const std::filesystem::path & path, Interpolation interpolation) : Texture{ load_image(path), interpolation } {}
 
+// Solid-color constructors are used heavily for generated boxes and UI props.
 Texture::Texture(const glm::vec3 & vec) : Texture{ cv::Mat{1, 1, CV_8UC3, cv::Scalar{vec.b * 255.0f, vec.g * 255.0f, vec.r * 255.0f}}, Interpolation::nearest } {}
 
 Texture::Texture(const glm::vec4 & vec) : Texture{ cv::Mat{1, 1, CV_8UC4, cv::Scalar{vec.b * 255.0f, vec.g * 255.0f, vec.r * 255.0f, vec.a * 255.0f}}, Interpolation::nearest } {}
 
+// Uploads 8-bit grayscale, RGB, or RGBA images. OpenCV stores color as BGR(A),
+// so GL upload formats use GL_BGR/GL_BGRA where needed.
 Texture::Texture(cv::Mat const& image, Interpolation interpolation)
 {
     if (image.empty()) {
         throw std::runtime_error{ "the input image is empty" };
     }
 
+    // OpenGL texture coordinates expect the origin at the bottom-left, while
+    // most image files/OpenCV use top-left.
     cv::Mat flipped;
     cv::flip(image, flipped, 0);
 
+    // Normalize higher-depth images into 8-bit data supported by this wrapper.
     if (flipped.depth() != CV_8U) {
         flipped.convertTo(flipped, CV_8U, flipped.depth() == CV_16U ? 1.0 / 256.0 : 1.0);
     }
@@ -81,6 +96,7 @@ Texture::~Texture() {
     }
 }
 
+// Return the real texture if uploaded, otherwise a visible fallback.
 GLuint Texture::get_name() const {
     return name_ != 0 ? name_ : gen_ckboard();
 }
@@ -89,6 +105,7 @@ void Texture::bind(GLuint unit) const {
     glBindTextureUnit(unit, get_name());
 }
 
+// Applies filtering mode and generates mipmaps when requested.
 void Texture::set_interpolation(Interpolation interpolation) {
     switch (interpolation) {
     case Interpolation::nearest:
@@ -107,6 +124,7 @@ void Texture::set_interpolation(Interpolation interpolation) {
     }
 }
 
+// Query size directly from OpenGL so callers always see uploaded dimensions.
 int Texture::get_height(void) const {
     int tex_height = 0;
     glGetTextureLevelParameteriv(get_name(), 0, GL_TEXTURE_HEIGHT, &tex_height);
@@ -119,6 +137,8 @@ int Texture::get_width(void) const {
     return tex_width;
 }
 
+// Replace pixel data without reallocating storage. This is useful for dynamic
+// textures, but the new image must match original dimensions and format.
 void Texture::replace_image(const cv::Mat& image) {
     if ((image.rows != get_height()) || (image.cols != get_width()))
         throw std::runtime_error("improper image replacement size");

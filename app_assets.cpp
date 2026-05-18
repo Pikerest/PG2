@@ -385,6 +385,8 @@ void App::init_assets(void) {
 
     auto tex_collision_clear = std::make_shared<Texture>(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f));
 
+    // The hex tunnel meshes are visual shells only. Separate transparent boxes
+    // below provide simple collision floors/walls for player and enemies.
     // Inner hex flat-side half-width = 0.860 * radius; use 0.82 to stay just inside the walls
     const float tunnel_walk_half_width  = 0.60f  * hub_tunnel_visual_radius; // ~1.77
     constexpr float tunnel_collision_thickness = 0.30f;
@@ -413,6 +415,8 @@ void App::init_assets(void) {
     add_tunnel_collision_z("hub_tunnel_collision_south", glm::vec3(0.0f, 0.0f, hub_center.z + hub_portal_panel_radius + south_tunnel_len * 0.5f), south_tunnel_len);
     add_tunnel_collision_z("hub_tunnel_collision_north", glm::vec3(0.0f, 0.0f, hub_center.z - hub_portal_panel_radius - north_tunnel_len * 0.5f), north_tunnel_len);
 
+    // Hub perimeter collision is approximated with straight box segments and
+    // gaps at tunnel portals. The visible dome panels themselves do not collide.
     constexpr float hub_shell_radius = 23.8f;
     constexpr float hub_tunnel_half_width = 2.8f;
     constexpr float hub_shell_thickness = 0.8f;
@@ -443,6 +447,8 @@ void App::init_assets(void) {
     scene["hub_platform_center_oct"] = hub_platform;
 
     auto add_oct_catwalk_top = [&](const std::string& name, const glm::vec3& center, float radius, float y) {
+        // Builds a flat octagonal top surface from a triangle fan. This keeps
+        // the visible platform shape aligned with the hub pit/walkway checks.
         constexpr float apothem_factor = 0.9238795f;
         constexpr float corner_factor = 0.3826834f;
         const float apothem = radius * apothem_factor;
@@ -494,6 +500,9 @@ void App::init_assets(void) {
     add_oct_catwalk_top("hub_platform_center_oct_top", hub_center, hub_oct_radius, 0.326f);
 
     auto add_oct_floor_collision = [&](const std::string& name, glm::vec3 center, float radius, float height) {
+        // Approximate an octagonal floor using narrow strips. The player
+        // collision code only understands boxes, so this gives a good shape
+        // without triangle collision.
         const float apothem = radius * 0.9238795f;
         const float corner = radius * 0.3826834f;
         constexpr int strips = 8;
@@ -527,6 +536,8 @@ void App::init_assets(void) {
     const float hub_catwalk_center_offset = (hub_catwalk_portal_end + hub_catwalk_inner_end) * 0.5f;
 
     auto add_catwalk_top = [&](const std::string& name, const glm::vec3& position, const glm::vec3& size, bool rotate_pattern) {
+        // Custom top mesh gives catwalks real UVs, unlike a scaled cube where
+        // the diamond-plate pattern would stretch badly.
         const float half_x = size.x * 0.5f;
         const float half_z = size.z * 0.5f;
         const float repeat_x = rotate_pattern ? std::max(size.x / 1.35f, 1.0f) : 1.0f;
@@ -554,6 +565,8 @@ void App::init_assets(void) {
     };
 
     auto add_catwalk = [&](const std::string& name, const glm::vec3& position, const glm::vec3& size, bool rotate_pattern = false) {
+        // The base box is both visual thickness and collision; the custom top
+        // mesh is added just above it for better texture mapping.
         auto base = add_box(name + "_base", position, size, tex_floor, true);
         base->emissive_color = glm::vec3(0.006f, 0.014f, 0.012f);
         add_catwalk_top(name, position, size, rotate_pattern);
@@ -572,6 +585,8 @@ void App::init_assets(void) {
     constexpr float rail_post_spacing = 3.25f;
 
     auto add_rail_bar_3d = [&](const std::string& name, glm::vec3 a, glm::vec3 b, float thickness) {
+        // Creates a rectangular rail bar between two 3D points and rotates it
+        // around Y so it follows the segment direction.
         const glm::vec3 delta = b - a;
         const float length = glm::length(delta);
         if (length <= 0.001f) {
@@ -586,6 +601,8 @@ void App::init_assets(void) {
     };
 
     auto add_railing_segment = [&](const std::string& name, glm::vec2 a, glm::vec2 b, bool collides = true) {
+        // A railing segment is visual geometry plus an optional invisible
+        // collider aligned to the same 2D segment.
         const glm::vec2 delta = b - a;
         const float length = glm::length(delta);
         if (length <= 0.001f) {
@@ -726,6 +743,8 @@ void App::init_assets(void) {
     auto add_obj = [&](const std::string& name, const std::string& path,
                        glm::vec3 pos, glm::vec3 euler, glm::vec3 sc,
                        std::shared_ptr<Texture> tex) {
+        // Decorative OBJ helper. Callers can set collides=true afterward when
+        // a prop should also block movement.
         auto m = std::make_shared<Model>("objects/" + path, shader_prog, tex);
         m->pivot_position = pos;
         m->eulerAngles    = euler;
@@ -958,6 +977,8 @@ void App::init_assets(void) {
 
     // Reactor enemies — orc OBJ model
     auto make_reactor_enemy = [&](const std::string& name, glm::vec3 pos, float bob_off) -> Enemy {
+        // Enemies share the same model/texture. Spawn data is captured below so
+        // reset_game_world() can revive them without loading assets again.
         auto m = std::make_shared<Model>("objects/orc_solid.obj", shader_prog, tex_orc);
         m->pivot_position = pos;
         m->scale = glm::vec3(74.0f);
@@ -1047,6 +1068,9 @@ void App::init_assets(void) {
     // };
 
     auto tex_particle = std::make_shared<Texture>(glm::vec4(1.0f, 0.8f, 0.2f, 1.0f));
+
+    // One small model is reused for every live particle by changing its
+    // transform before each draw call in app_render.cpp.
     particle_template = std::make_shared<Model>("objects/tetrahedron.obj", shader_prog, tex_particle);
     particle_template->scale = glm::vec3(0.1f);
     particle_template->is_transparent = true;
