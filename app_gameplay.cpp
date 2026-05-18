@@ -178,7 +178,7 @@ void App::update_gameplay(float delta_t, double now)
 			if (player_health <= 0)
 				enter_game_over();
 			else
-				set_hud_message("Specimen contact — taking damage!");
+				set_hud_message("SCP-████ instance — taking damage!");
 		}
 	}
 
@@ -222,7 +222,7 @@ void App::update_gameplay(float delta_t, double now)
 		hidden_door_btn->eulerAngles.y += delta_t * 90.0f;
 		const float dist = glm::distance(camera.Position, hidden_door_btn->pivot_position);
 		if (dist < 4.5f)
-			set_hud_message("[ E ]  Open hidden passage", 0.4f);
+			set_hud_message("[ E ]  Open maintenance hatch", 0.4f);
 	}
 
 	if (hidden_door_open && hidden_door_wall) {
@@ -237,6 +237,10 @@ void App::update_gameplay(float delta_t, double now)
             show_location_text(tz.message, tz.duration);
         }
     }
+
+    // Win condition: player passes the evacuation threshold behind the blast door.
+    if (gate_unlocked && camera.Position.z < -41.5f)
+        enter_win();
 }
 
 // Handles vertical player motion that the Camera class does not know about:
@@ -306,7 +310,7 @@ void App::update_pit_state()
     }
 
     if (camera.Position.y < DEATH_PIT_Y)
-        respawn_player("You fell into the containment pit.");
+        respawn_player("D-9341 fell into the containment pit.");
 }
 
 // Restores player position, view direction, vertical movement, and health.
@@ -367,7 +371,7 @@ void App::reset_game_world()
     }
 
     if (gate_model) {
-        gate_model->pivot_position = glm::vec3(0.0f, 1.8f, -39.2f);
+        gate_model->pivot_position = glm::vec3(0.0f, 2.0f, -39.2f);
         gate_model->collides = true;
         gate_model->material_alpha = 1.0f;
     }
@@ -407,7 +411,14 @@ void App::reset_game_world()
         enemy.model->material_alpha  = enemy.spawn_alpha;
     }
 
-    set_hud_message("GOAL: activate all reactors and unlock the containment gate.", 6.0f);
+    // Dim wing lights — each reactor will restore its section on activation
+    for (size_t i = 6; i < point_lights.size() && i < point_lights_saved.size(); ++i) {
+        point_lights[i].diffuse  = glm::vec3(0.0f);
+        point_lights[i].specular = glm::vec3(0.0f);
+        point_lights[i].ambient  = glm::vec3(0.012f, 0.008f, 0.008f);
+    }
+
+    set_hud_message("OBJECTIVE: activate all three reactors and disengage the blast door.", 6.0f);
 }
 
 // Enters the playable state from the menu or game-over screen.
@@ -418,6 +429,17 @@ void App::start_new_game()
     game_state_enter_time = glfwGetTime();
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     firstMouse = true;
+}
+
+// Triggers the mission-complete screen when the player crosses the evacuation threshold.
+void App::enter_win()
+{
+    if (game_state == GameState::Won) return;
+    game_state = GameState::Won;
+    game_state_enter_time = glfwGetTime();
+    hud_message.clear();
+    location_message.clear();
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
 
 // Switches to game-over UI, releases the cursor, and stops HUD/location text.
@@ -455,7 +477,7 @@ void App::activate_nearest_reactor()
 		if (dist < 2.4f) {
 			hidden_door_open = true;
 			audio_play_door();
-			set_hud_message("Hidden passage unlocked.");
+			set_hud_message("Maintenance hatch open.");
 			return;
 		}
 	}
@@ -465,6 +487,7 @@ void App::activate_nearest_reactor()
 		return;
 	}
 
+	const int reactor_idx = static_cast<int>(nearest - reactors.data());
 	nearest->active = true;
 
 	// Activated reactors become mostly visual: the glass fades up and the
@@ -478,12 +501,31 @@ void App::activate_nearest_reactor()
 	reactors_active++;
 	spawn_particles(nearest->model->pivot_position + glm::vec3(0.0f, 1.2f, 0.0f), 30);
 
+	// Each reactor restores power to its section: R1→6-11, R2+junction→12-23, R3+east→24-35
+	static constexpr int light_lo[3] = { 6, 12, 24 };
+	static constexpr int light_hi[3] = { 11, 23, 35 };
+	if (reactor_idx >= 0 && reactor_idx < 3) {
+		for (int i = light_lo[reactor_idx]; i <= light_hi[reactor_idx] && i < static_cast<int>(point_lights_saved.size()); ++i)
+			point_lights[i] = point_lights_saved[i];
+
+	}
+
 	if (reactors_active >= static_cast<int>(reactors.size())) {
 		if (!gate_unlocked) {
 			gate_unlocked = true;
 			audio_play_door();
 		}
-		set_hud_message("Containment gate unlocked.", 8.0f);
+		// Containment field neutralizes remaining SCP-871 instances
+		for (auto& enemy : enemies) {
+			if (!enemy.alive || !enemy.model) continue;
+			enemy.alive = false;
+			spawn_particles(enemy.model->pivot_position + glm::vec3(0.0f, 0.6f, 0.0f), 12);
+			enemy.model->collides      = false;
+			enemy.model->material_alpha = 0.0f;
+			enemy.model->is_transparent = true;
+			enemy.model->pivot_position.y = -20.0f;
+		}
+		set_hud_message("Blast door disengaged - proceed to evacuation point.", 8.0f);
 	} else {
 		set_hud_message("Reactor online.");
 	}
@@ -516,6 +558,17 @@ void App::toggle_all_reactors()
 		gate_model->pivot_position = glm::vec3(0.0f, 1.8f, -39.2f);
 		gate_model->collides = true;
 		gate_model->material_alpha = 1.0f;
+	}
+
+	// Sync wing lights to match reactor state
+	for (size_t i = 6; i < point_lights.size() && i < point_lights_saved.size(); ++i) {
+		if (turn_on) {
+			point_lights[i] = point_lights_saved[i];
+		} else {
+			point_lights[i].diffuse  = glm::vec3(0.0f);
+			point_lights[i].specular = glm::vec3(0.0f);
+			point_lights[i].ambient  = glm::vec3(0.012f, 0.008f, 0.008f);
+		}
 	}
 
 	set_hud_message(turn_on ? "Dev: all reactors online." : "Dev: all reactors offline.");
@@ -551,7 +604,7 @@ void App::fire_weapon()
 	audio_play_shoot();
 
 	if (!hit_enemy) {
-		set_hud_message("Shot missed.");
+		set_hud_message("Missed.");
 		spawn_particles(ray_origin + ray_dir * 2.0f, 4);
 		return;
 	}
@@ -565,9 +618,9 @@ void App::fire_weapon()
 		hit_enemy->model->material_alpha = 0.0f;
 		hit_enemy->model->is_transparent = true;
 		hit_enemy->model->pivot_position.y = -20.0f;
-		set_hud_message("Specimen neutralized.");
+		set_hud_message("SCP-871 instance neutralized.");
 	} else {
-		set_hud_message("Specimen hit.");
+		set_hud_message("SCP-871 instance hit.");
 	}
 }
 

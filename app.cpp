@@ -390,7 +390,7 @@ int App::run(void)
 				ImGui::Text("Trigger debug: %s (T)", show_trigger_debug ? "ON" : "OFF");
 				ImGui::Text("V-Sync: %s (hit V to toggle)", is_vsync_on ? "ON" : "OFF");
 				ImGui::Text("Multisample (AA): %s (hit M to toggle)", is_multisample_on ? "ON" : "OFF");
-				ImGui::Text("LMB fire | E reactor button | P screenshot");
+				ImGui::Text("LMB fire | E containment terminal | P screenshot");
 				ImGui::Text("Space jump | Shift sprint");
 				ImGui::Text("Dev: R toggle all reactors");
 				ImGui::Text("(press RMB to release mouse)");
@@ -576,32 +576,28 @@ int App::run(void)
 			shader_prog->setUniform("dir_light_diffuse", dir_light.diffuse);
 			shader_prog->setUniform("dir_light_specular", dir_light.specular);
 
-			const int uploaded_point_lights = static_cast<int>(std::min<size_t>(point_lights.size(), 24));
+			// Only upload lights that contribute visible light (skip dimmed wing lights).
+			static std::vector<glm::vec3> light_positions;
+			static std::vector<glm::vec3> light_ambient;
+			static std::vector<glm::vec3> light_diffuse;
+			static std::vector<glm::vec3> light_specular;
+			static std::vector<GLfloat>   light_radius;
+			light_positions.clear(); light_ambient.clear();
+			light_diffuse.clear();   light_specular.clear();
+			light_radius.clear();
+			for (const auto& pl : point_lights) {
+				if (light_positions.size() >= 36) break;
+				if (glm::dot(pl.diffuse, pl.diffuse) < 1e-6f &&
+				    glm::dot(pl.ambient, pl.ambient) < 1e-6f) continue;
+				light_positions.emplace_back(glm::vec3(view * glm::vec4(pl.position, 1.0f)));
+				light_ambient.emplace_back(pl.ambient);
+				light_diffuse.emplace_back(pl.diffuse);
+				light_specular.emplace_back(pl.specular);
+				light_radius.emplace_back(pl.radius);
+			}
+			const int uploaded_point_lights = static_cast<int>(light_positions.size());
 			shader_prog->setUniform("num_point_lights", uploaded_point_lights);
 			if (uploaded_point_lights > 0) {
-				static std::vector<glm::vec3> light_positions;
-				static std::vector<glm::vec3> light_ambient;
-				static std::vector<glm::vec3> light_diffuse;
-				static std::vector<glm::vec3> light_specular;
-				static std::vector<GLfloat> light_radius;
-				light_positions.clear();
-				light_ambient.clear();
-				light_diffuse.clear();
-				light_specular.clear();
-				light_radius.clear();
-				light_positions.reserve(uploaded_point_lights);
-				light_ambient.reserve(uploaded_point_lights);
-				light_diffuse.reserve(uploaded_point_lights);
-				light_specular.reserve(uploaded_point_lights);
-				light_radius.reserve(uploaded_point_lights);
-
-				for (int i = 0; i < uploaded_point_lights; i++) {
-					light_positions.emplace_back(glm::vec3(view * glm::vec4(point_lights[i].position, 1.0f)));
-					light_ambient.emplace_back(point_lights[i].ambient);
-					light_diffuse.emplace_back(point_lights[i].diffuse);
-					light_specular.emplace_back(point_lights[i].specular);
-					light_radius.emplace_back(point_lights[i].radius);
-				}
 
 				shader_prog->setUniform("point_light_position[0]", light_positions);
 				shader_prog->setUniform("point_light_ambient[0]", light_ambient);
@@ -650,7 +646,8 @@ int App::run(void)
 							render_opaque.emplace_back(model_obj);
 					}
 					else if (orb_model_set.count(model_obj.get())) {
-						render_oit_orbs.emplace_back(model_obj);
+						if (in_frustum(model_obj->getPosition(), model_obj->get_cull_radius()))
+							render_oit_orbs.emplace_back(model_obj);
 					}
 					else {
 						if (in_frustum(model_obj->getPosition(), model_obj->get_cull_radius()))

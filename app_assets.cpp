@@ -93,24 +93,43 @@ void App::init_assets(void) {
     point_lights.push_back({ glm::vec3(-50.5f, 3.0f, -32.0f), glm::vec3(0.062f,0.053f,0.044f), glm::vec3(1.58f,1.43f,1.17f), glm::vec3(0.230f,0.198f,0.164f),  7.0f }); // north wall
     // Junction general fill
     point_lights.push_back({ glm::vec3(-50.5f, 3.5f, -17.0f), glm::vec3(0.062f,0.053f,0.044f), glm::vec3(1.37f,1.26f,1.04f), glm::vec3(0.198f,0.164f,0.131f), 16.0f });
-    // === East Wing — warm amber industrial lighting (×4 brightness) ===
+    // === East Wing — warm amber industrial lighting ===
     // East corridor
-    point_lights.push_back({ glm::vec3( 33.5f, 3.0f, -12.5f), glm::vec3(0.88f,0.68f,0.36f), glm::vec3(8.40f,6.56f,4.00f), glm::vec3(1.04f,0.80f,0.52f), 18.0f });
+    point_lights.push_back({ glm::vec3( 33.5f, 3.0f, -12.5f), glm::vec3(0.22f,0.17f,0.09f), glm::vec3(2.10f,1.64f,1.00f), glm::vec3(0.26f,0.20f,0.13f), 18.0f });
     // Warehouse — 5 lights
-    point_lights.push_back({ glm::vec3( 52.0f, 3.0f, -32.0f), glm::vec3(0.80f,0.64f,0.32f), glm::vec3(7.84f,6.08f,3.68f), glm::vec3(0.96f,0.74f,0.46f), 20.0f });
-    point_lights.push_back({ glm::vec3( 73.0f, 3.0f, -27.0f), glm::vec3(0.80f,0.64f,0.32f), glm::vec3(7.84f,6.08f,3.68f), glm::vec3(0.96f,0.74f,0.46f), 20.0f });
-    point_lights.push_back({ glm::vec3( 50.0f, 3.0f,  -6.0f), glm::vec3(0.80f,0.64f,0.32f), glm::vec3(7.84f,6.08f,3.68f), glm::vec3(0.96f,0.74f,0.46f), 20.0f });
-    point_lights.push_back({ glm::vec3( 71.0f, 3.0f,  -2.0f), glm::vec3(0.80f,0.64f,0.32f), glm::vec3(7.84f,6.08f,3.68f), glm::vec3(0.96f,0.74f,0.46f), 20.0f });
-    point_lights.push_back({ glm::vec3( 62.0f, 3.0f, -18.0f), glm::vec3(1.00f,0.80f,0.40f), glm::vec3(8.80f,6.88f,4.16f), glm::vec3(1.12f,0.86f,0.54f), 26.0f });
+    point_lights.push_back({ glm::vec3( 52.0f, 3.0f, -32.0f), glm::vec3(0.20f,0.16f,0.08f), glm::vec3(1.96f,1.52f,0.92f), glm::vec3(0.24f,0.19f,0.12f), 20.0f });
+    point_lights.push_back({ glm::vec3( 73.0f, 3.0f, -27.0f), glm::vec3(0.20f,0.16f,0.08f), glm::vec3(1.96f,1.52f,0.92f), glm::vec3(0.24f,0.19f,0.12f), 20.0f });
+    point_lights.push_back({ glm::vec3( 50.0f, 3.0f,  -6.0f), glm::vec3(0.20f,0.16f,0.08f), glm::vec3(1.96f,1.52f,0.92f), glm::vec3(0.24f,0.19f,0.12f), 20.0f });
+    point_lights.push_back({ glm::vec3( 71.0f, 3.0f,  -2.0f), glm::vec3(0.20f,0.16f,0.08f), glm::vec3(1.96f,1.52f,0.92f), glm::vec3(0.24f,0.19f,0.12f), 20.0f });
+    point_lights.push_back({ glm::vec3( 62.0f, 3.0f, -18.0f), glm::vec3(0.25f,0.20f,0.10f), glm::vec3(2.20f,1.72f,1.04f), glm::vec3(0.28f,0.22f,0.14f), 26.0f });
     // Reactor3 — indices 30-35, flicker in update_gameplay
-    point_lights.push_back({ glm::vec3( 89.0f, 3.0f, -32.0f), glm::vec3(0.88f,0.68f,0.36f), glm::vec3(8.80f,6.88f,4.16f), glm::vec3(1.12f,0.86f,0.54f), 16.0f }); // 30
-    point_lights.push_back({ glm::vec3( 89.0f, 3.0f, -16.0f), glm::vec3(0.88f,0.68f,0.36f), glm::vec3(8.80f,6.88f,4.16f), glm::vec3(1.12f,0.86f,0.54f), 16.0f }); // 31
-    point_lights.push_back({ glm::vec3( 84.0f, 3.0f, -36.0f), glm::vec3(0.72f,0.56f,0.28f), glm::vec3(7.20f,5.60f,3.40f), glm::vec3(0.88f,0.68f,0.40f), 12.0f }); // 32
-    point_lights.push_back({ glm::vec3( 94.0f, 3.0f, -36.0f), glm::vec3(0.72f,0.56f,0.28f), glm::vec3(7.20f,5.60f,3.40f), glm::vec3(0.88f,0.68f,0.40f), 12.0f }); // 33
-    point_lights.push_back({ glm::vec3( 84.0f, 3.0f, -12.0f), glm::vec3(0.72f,0.56f,0.28f), glm::vec3(7.20f,5.60f,3.40f), glm::vec3(0.88f,0.68f,0.40f), 12.0f }); // 34
-    point_lights.push_back({ glm::vec3( 94.0f, 3.0f, -12.0f), glm::vec3(0.72f,0.56f,0.28f), glm::vec3(7.20f,5.60f,3.40f), glm::vec3(0.88f,0.68f,0.40f), 12.0f }); // 35
+    point_lights.push_back({ glm::vec3( 89.0f, 3.0f, -32.0f), glm::vec3(0.22f,0.17f,0.09f), glm::vec3(2.20f,1.72f,1.04f), glm::vec3(0.28f,0.22f,0.14f), 16.0f }); // 30
+    point_lights.push_back({ glm::vec3( 89.0f, 3.0f, -16.0f), glm::vec3(0.22f,0.17f,0.09f), glm::vec3(2.20f,1.72f,1.04f), glm::vec3(0.28f,0.22f,0.14f), 16.0f }); // 31
+    point_lights.push_back({ glm::vec3( 84.0f, 3.0f, -36.0f), glm::vec3(0.18f,0.14f,0.07f), glm::vec3(1.80f,1.40f,0.85f), glm::vec3(0.22f,0.17f,0.10f), 12.0f }); // 32
+    point_lights.push_back({ glm::vec3( 94.0f, 3.0f, -36.0f), glm::vec3(0.18f,0.14f,0.07f), glm::vec3(1.80f,1.40f,0.85f), glm::vec3(0.22f,0.17f,0.10f), 12.0f }); // 33
+    point_lights.push_back({ glm::vec3( 84.0f, 3.0f, -12.0f), glm::vec3(0.18f,0.14f,0.07f), glm::vec3(1.80f,1.40f,0.85f), glm::vec3(0.22f,0.17f,0.10f), 12.0f }); // 34
+    point_lights.push_back({ glm::vec3( 94.0f, 3.0f, -12.0f), glm::vec3(0.18f,0.14f,0.07f), glm::vec3(1.80f,1.40f,0.85f), glm::vec3(0.22f,0.17f,0.10f), 12.0f }); // 35
+
+    // Save full-brightness snapshot; wing lights (6+) start off until their reactor is activated.
+    point_lights_saved = point_lights;
+    for (size_t i = 6; i < point_lights.size(); ++i) {
+        point_lights[i].diffuse  = glm::vec3(0.0f);
+        point_lights[i].specular = glm::vec3(0.0f);
+        point_lights[i].ambient  = glm::vec3(0.012f, 0.008f, 0.008f); // faint red emergency glow
+    }
 
     spot_lights.clear();
+    {
+        SpotLight flashlight;
+        flashlight.position     = camera.Position;
+        flashlight.direction    = camera.Front;
+        flashlight.ambient      = glm::vec3(0.01f, 0.01f, 0.01f);
+        flashlight.diffuse      = glm::vec3(0.35f, 0.33f, 0.30f);
+        flashlight.specular     = glm::vec3(0.30f, 0.28f, 0.25f);
+        flashlight.cutoff       = 12.5f;
+        flashlight.outer_cutoff = 17.5f;
+        spot_lights.push_back(flashlight);
+    }
 
     // Shared textures. Some are loaded from files, others are simple solid
     // colors used for generated boxes, glass, UI helpers, and invisible colliders.
@@ -794,7 +813,7 @@ void App::init_assets(void) {
     add_box("r2_corr_ceiling",     glm::vec3(-62.0f, 4.05f, -29.0f), glm::vec3(10.0f, 0.1f,  6.0f), tex_metal_panel,  false, 1.5f);
     add_box("reactor2_ceiling",    glm::vec3(-77.0f, 4.05f, -29.0f), glm::vec3(20.0f, 0.1f, 18.0f), tex_metal_panel,  false, 1.5f);
     // East Wing ceilings — different textures for industrial look
-    add_box("east_corr_ceiling",  glm::vec3( 33.5f, 4.05f, -12.5f), glm::vec3(23.0f, 0.1f, 10.0f), tex_metal_plate,    false, 1.5f);
+    add_box("east_corr_ceiling",  glm::vec3( 35.0f, 4.05f, -12.5f), glm::vec3(20.0f, 0.1f, 10.0f), tex_metal_plate,    false, 1.5f);
     add_box("warehouse_ceiling",  glm::vec3( 63.0f, 4.05f, -17.0f), glm::vec3(36.0f, 0.1f, 46.0f), tex_corrugated_iron, false, 1.5f);
     add_box("reactor3_ceiling",   glm::vec3( 89.0f, 4.05f, -24.0f), glm::vec3(14.0f, 0.1f, 32.0f), tex_sci_floor,       false, 1.5f);
 
@@ -954,8 +973,6 @@ void App::init_assets(void) {
                                 0.68f);
     }
 
-    add_box("glass_warning_left",  glm::vec3(-20.0f, 2.4f, -12.5f), glm::vec3(0.18f, 4.0f, 7.0f), tex_red_glass,  false, 1.0f, true, 0.35f);
-    add_box("glass_warning_right", glm::vec3( 20.0f, 2.4f, -12.5f), glm::vec3(0.18f, 4.0f, 7.0f), tex_blue_glass, false, 1.0f, true, 0.35f);
 
     reactors.push_back({
         add_box("reactor_01",        glm::vec3(-77.0f, 0.8f,  -3.0f), glm::vec3(1.4f, 2.0f, 1.4f), tex_red_glass,   true, 1.0f, true, 0.55f),
@@ -973,7 +990,7 @@ void App::init_assets(void) {
         glm::vec3(0.25f, 1.0f, 0.30f)
     });
 
-    gate_model = add_box("containment_gate", glm::vec3(0.0f, 1.8f, -39.2f), glm::vec3(7.5f, 3.6f, 0.8f), tex_dark, true, 2.5f);
+    gate_model = add_box("containment_gate", glm::vec3(0.0f, 2.0f, -39.2f), glm::vec3(7.5f, 4.0f, 0.8f), tex_dark, true, 2.5f);
 
     // Reactor enemies — orc OBJ model
     auto make_reactor_enemy = [&](const std::string& name, glm::vec3 pos, float bob_off) -> Enemy {
@@ -1095,13 +1112,13 @@ void App::init_assets(void) {
 
     // Trigger zones — message fires once when player enters the radius
     trigger_zones = {
-        { glm::vec3(  0.0f, 2.0f,  0.0f), 4.0f, "Containment Zone",  5.5f },
-        { glm::vec3(-30.0f, 2.0f, -12.5f), 3.0f, "West Wing",         5.5f },
-        { glm::vec3( 30.0f, 2.0f, -12.5f), 3.0f, "East Wing",         5.5f },
-        { glm::vec3(  0.0f, 2.0f, -25.0f), 3.0f, "North Wing",        5.5f },
+        { glm::vec3(  0.0f, 2.0f,  0.0f), 4.0f, "Central Containment Hub",          5.5f },
+        { glm::vec3(-30.0f, 2.0f, -12.5f), 3.0f, "West Wing - Sector A",            5.5f },
+        { glm::vec3( 30.0f, 2.0f, -12.5f), 3.0f, "East Wing - Sector B",            5.5f },
+        { glm::vec3(  0.0f, 2.0f, -25.0f), 3.0f, "North Wing - Evacuation Point",   5.5f },
     };
 
-    set_hud_message("GOAL: activate all reactors.");
+    set_hud_message("OBJECTIVE: activate all three reactors.");
 }
 
 // Convenience constructor for cube-based scene objects.

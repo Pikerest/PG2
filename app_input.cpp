@@ -42,6 +42,11 @@ void App::glfw_key_callback(GLFWwindow* window, int key, int scancode, int actio
 		this_inst->start_new_game();
 		return;
 	}
+	if (this_inst->game_state == App::GameState::Won && action == GLFW_PRESS &&
+	    (key == GLFW_KEY_SPACE || key == GLFW_KEY_ENTER)) {
+		this_inst->start_new_game();
+		return;
+	}
 	if (this_inst->game_state != App::GameState::Playing) {
 		if (action == GLFW_PRESS && key == GLFW_KEY_ESCAPE) {
 			glfwSetWindowShouldClose(window, GLFW_TRUE);
