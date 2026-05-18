@@ -147,6 +147,7 @@ private:
     // by the main render loop.
     DirectionalLight dir_light;
     std::vector<PointLight> point_lights;
+    std::vector<PointLight> point_lights_saved; // full-brightness snapshot; wing lights start dimmed
     std::vector<SpotLight> spot_lights;
 
     // Frustum planes (updated each frame) for cheap sphere culling.
@@ -162,7 +163,7 @@ private:
     std::unordered_set<Model*> orb_model_set;
 
     // Application and gameplay state.
-    enum class GameState { Menu, Playing, GameOver } game_state{GameState::Menu};
+    enum class GameState { Menu, Playing, GameOver, Won } game_state{GameState::Menu};
     double game_state_enter_time{0.0};
     int player_health = 100;
     int reactors_active = 0;
@@ -258,6 +259,7 @@ private:
     // Gameplay helpers implemented in app_gameplay.cpp.
     void start_new_game();
     void enter_game_over();
+    void enter_win();
     void reset_game_world();
     void update_gameplay(float delta_t, double now);
     void update_player_motion(float delta_t);

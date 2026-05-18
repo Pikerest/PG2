@@ -156,7 +156,8 @@ void App::draw_trigger_debug()
 // The menu is drawn with ImGui primitives over the already-rendered scene.
 void App::draw_menu()
 {
-    const bool is_go = (game_state == GameState::GameOver);
+    const bool is_go  = (game_state == GameState::GameOver);
+    const bool is_win = (game_state == GameState::Won);
     const ImVec2 viewport_size(static_cast<float>(width), static_cast<float>(height));
     const ImGuiWindowFlags overlay_flags =
         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
@@ -179,7 +180,7 @@ void App::draw_menu()
     ImGui::End();
 
     const float panel_w = std::clamp(viewport_size.x - 96.0f, 420.0f, 760.0f);
-    const float panel_h = is_go ? 292.0f : 420.0f;
+    const float panel_h = is_go ? 292.0f : (is_win ? 320.0f : 420.0f);
     const ImVec2 panel_pos(viewport_size.x * 0.5f - panel_w * 0.5f,
                            viewport_size.y * 0.5f - panel_h * 0.5f);
     const double t = glfwGetTime() - game_state_enter_time;
@@ -192,8 +193,9 @@ void App::draw_menu()
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(34.0f, 28.0f));
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.025f, 0.033f, 0.040f, 0.96f));
-    ImGui::PushStyleColor(ImGuiCol_Border, is_go ? ImVec4(0.95f, 0.18f, 0.12f, 0.70f)
-                                                 : ImVec4(0.20f, 0.84f, 0.86f, 0.70f));
+    ImGui::PushStyleColor(ImGuiCol_Border, is_go  ? ImVec4(0.95f, 0.18f, 0.12f, 0.70f)
+                                         : is_win ? ImVec4(0.18f, 0.90f, 0.38f, 0.70f)
+                                                  : ImVec4(0.20f, 0.84f, 0.86f, 0.70f));
     ImGui::Begin("##menu", nullptr,
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
@@ -202,21 +204,40 @@ void App::draw_menu()
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const ImVec2 p = ImGui::GetWindowPos();
     const ImVec2 s = ImGui::GetWindowSize();
-    const ImU32 accent     = is_go ? IM_COL32(230, 52, 38, 230) : IM_COL32(60, 210, 220, 230);
-    const ImU32 accent_dim = is_go ? IM_COL32(230, 52, 38, 78)  : IM_COL32(60, 210, 220, 78);
+    const ImU32 accent     = is_go  ? IM_COL32(230, 52,  38,  230)
+                           : is_win ? IM_COL32(60,  220, 100, 230)
+                                    : IM_COL32(60,  210, 220, 230);
+    const ImU32 accent_dim = is_go  ? IM_COL32(230, 52,  38,  78)
+                           : is_win ? IM_COL32(60,  220, 100, 78)
+                                    : IM_COL32(60,  210, 220, 78);
     dl->AddRectFilled(p, ImVec2(p.x + 7.0f, p.y + s.y), accent);
     dl->AddLine(ImVec2(p.x + 22.0f, p.y + 78.0f), ImVec2(p.x + s.x - 30.0f, p.y + 78.0f), accent_dim, 1.5f);
     dl->AddRect(p, ImVec2(p.x + s.x, p.y + s.y), accent_dim, 0.0f, 0, 2.0f);
 
-    if (is_go) {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.20f, 0.15f, 1.0f));
+    if (is_win) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.22f, 1.0f, 0.45f, 1.0f));
         ImGui::SetWindowFontScale(2.1f);
-        ImGui::TextUnformatted("GAME OVER");
+        ImGui::TextUnformatted("MISSION COMPLETE");
         ImGui::PopStyleColor();
         ImGui::SetWindowFontScale(1.0f);
         ImGui::Spacing();
         ImGui::Spacing();
-        ImGui::TextWrapped("Your suit flatlined in the containment sector. The facility is resetting the simulation from the first checkpoint.");
+        ImGui::TextWrapped("D-9341 has successfully evacuated Site-42. The Foundation has dispatched MTF units to secure the breach. SCP-871 instances have been re-contained.");
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.72f, 0.98f, 0.80f, 0.92f));
+        ImGui::TextUnformatted("SPACE / ENTER  Play again");
+        ImGui::TextUnformatted("ESC            Quit");
+        ImGui::PopStyleColor();
+    } else if (is_go) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.20f, 0.15f, 1.0f));
+        ImGui::SetWindowFontScale(2.1f);
+        ImGui::TextUnformatted("CONTAINMENT FAILURE");
+        ImGui::PopStyleColor();
+        ImGui::SetWindowFontScale(1.0f);
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::TextWrapped("D-9341 has been terminated by SCP-871. Foundation logs updated. Re-initializing from last known checkpoint.");
         ImGui::Spacing();
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.86f, 0.72f, 0.92f));
@@ -226,18 +247,18 @@ void App::draw_menu()
     } else {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.78f, 0.98f, 1.0f, 1.0f));
         ImGui::SetWindowFontScale(2.15f);
-        ImGui::TextUnformatted("FACILITY X-7");
+        ImGui::TextUnformatted("SITE-42");
         ImGui::PopStyleColor();
         ImGui::SetWindowFontScale(1.0f);
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.62f, 0.86f, 0.90f, 1.0f));
-        ImGui::TextUnformatted("Containment Recovery Protocol");
+        ImGui::TextUnformatted("Emergency Containment Protocol");
         ImGui::PopStyleColor();
         ImGui::Spacing();
         ImGui::Spacing();
-        ImGui::TextWrapped("You wake inside an abandoned research complex after a containment failure. Specimens are loose, power is unstable, and the main gate is locked.");
+        ImGui::TextWrapped("You are D-9341. A containment breach has allowed SCP-871 to replicate across the facility. Backup power is failing and the blast door is sealed.");
         ImGui::Spacing();
-        ImGui::TextWrapped("Mission: activate all three reactors, reopen the containment gate, and survive long enough to reach the exit.");
+        ImGui::TextWrapped("Mission: activate all three reactors to restore facility power, then reach the evacuation point before the lockdown protocol engages permanently.");
         ImGui::Spacing();
         ImGui::Spacing();
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.84f, 0.92f, 0.92f, 0.95f));
@@ -250,7 +271,9 @@ void App::draw_menu()
         ImGui::PopStyleColor();
     }
 
-    const char* prompt = is_go ? "PRESS SPACE TO RESTART" : "PRESS SPACE TO START";
+    const char* prompt = is_go ? "PRESS SPACE TO REINITIALIZE"
+                       : is_win ? "PRESS SPACE TO PLAY AGAIN"
+                                : "PRESS SPACE TO BEGIN PROTOCOL";
     const ImVec2 prompt_size = ImGui::CalcTextSize(prompt);
     const float prompt_x = p.x + (s.x - prompt_size.x) * 0.5f;
     const float prompt_y = p.y + s.y - 48.0f;
@@ -521,6 +544,13 @@ void App::draw_particles() {
     glDepthMask(GL_FALSE);
 
     for (auto& p : particles) {
+        // Skip particles outside the view frustum.
+        bool visible = true;
+        for (const auto& plane : frustum_planes)
+            if (plane.x*p.position.x + plane.y*p.position.y + plane.z*p.position.z + plane.w < -p.scale)
+                { visible = false; break; }
+        if (!visible) continue;
+
         const float life_ratio = 1.0f - (p.age / p.lifetime);
 
         // Particle template is reused to avoid allocating per-particle models.
