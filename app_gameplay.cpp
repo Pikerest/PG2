@@ -178,7 +178,7 @@ void App::update_gameplay(float delta_t, double now)
 			if (player_health <= 0)
 				enter_game_over();
 			else
-				set_hud_message("SCP-████ instance — taking damage!");
+				set_hud_message("SCP-871 instance — taking damage!");
 		}
 	}
 
